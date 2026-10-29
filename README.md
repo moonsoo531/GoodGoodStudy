@@ -16,6 +16,7 @@ GoodGoodStudy 是一个使用本地资料的学习工具，提供 **学习、测
 - 测试：导入独立的单选题 ZIP，按设定题数与时间作答，保存未完成试卷、成绩和错题统计。
 - 本地播放：macOS 支持本地音视频和字幕；iOS 使用 Apple AVPlayer 播放本地音频及字幕。
 - 页面恢复只恢复位置和模块，不自动播放音频或自动开始新的考试。
+- 设置中提供三语导入帮助、关于页面、安装版本、源码、许可和隐私政策入口。
 - 可选 iCloud 同步：在设置中开启后，同步已导入的学习包、题库、包内音频及学习笔记与进度；各设备保留本地副本，下载内容在完整校验后导入。冲突保留双方，可在同步设置中选择处理。
 
 资料默认保存在使用者自己的设备。iCloud 同步默认关闭，开启后由 Apple 将所选范围传输到同一 Apple Account 下的其他设备。未完成的测试、独立播放器文件、语言、主题与页面偏好保留在各设备。不同资料包使用稳定 ID 与递增修订号更新。
@@ -86,3 +87,5 @@ python3 tool/audit_public_export.py
 本项目以 **GNU Affero General Public License v3** 发布。请阅读 [LICENSE](LICENSE) 和 [来源归属](docs/upstream-provenance.md)。Enjoy Player 本地播放与字幕逻辑的上游归属继续保留。软件的开源许可不授予第三方教材、题库或音频的再分发权。
 
 Flutter、Dart 包及原生播放组件分别适用其许可证。来源与随附许可原文见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+隐私说明见[三语隐私政策](docs/privacy-policy.md)。商店发行准备见[许可审查](docs/licenses-release-review.md)、[隐私与 SDK 审查](docs/app-store-privacy-audit.md)和[三语商店资料草稿](docs/app-store-metadata.md)；这些材料不代表已经获得发行例外、完成 TestFlight 或通过 App Store 审核。

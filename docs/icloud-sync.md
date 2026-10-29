@@ -16,14 +16,14 @@ GoodGoodStudy 默认使用设备上的本地副本，**iCloud 同步默认关闭
 
 ## Apple 平台签名与容器配置
 
-本仓库只提供源码配置，不提供开发者证书、个人团队信息或 provisioning profile。当前曾用于本地 iPhone 0.7.2 验证的 wildcard profile **没有 iCloud 权限和容器授权，不能用于本功能**。
+本仓库只提供源码配置，不提供开发者证书、个人团队信息或 provisioning profile。曾用于本地 iPhone 0.7.2 验证的 wildcard profile **没有 iCloud 权限和容器授权，不能用于本功能**。本项目随后已在 0.8.1 的 iPhone 与 Mac 开发签名包中核对了共享容器权限，iPhone 界面也确认 iCloud 可用；这不能替代双设备传输验收，也不代表独立发行者的签名已配置。
 
 准备可用构建需要：
 
 1. 在自己的开发团队中为应用配置显式 App ID，启用 iCloud Documents，并关联容器。
 2. 让 iOS 与 macOS 的 App ID 均授权访问同一个容器，重新生成适用的开发或发行 profile。
 3. 在两端源码与构建设置中保持容器一致。默认值为 `iCloud.dev.learnjapanese.offlinePlayer`；独立发行者应使用自己团队管理的容器。
-4. 使用与这些权限相符的有效签名。当前本地 macOS ad-hoc 签名包没有团队和 profile 授权，不能作为 iCloud 已可用的证明。Mac 的实际发行方式可以按 Apple 支持范围选择 Mac App Store 或 Developer ID；采用 Developer ID 的高级能力时也需相应 profile。
+4. 使用与这些权限相符的有效签名。历史 macOS ad-hoc 签名包没有团队和 profile 授权，不能作为 iCloud 已可用的证明。Mac 的实际发行方式可以按 Apple 支持范围选择 Mac App Store 或 Developer ID；采用 Developer ID 的高级能力时也需相应 profile。签名身份发生变化时，macOS 可能要求确认现有应用数据容器的访问权限，不应通过删除用户容器或降低安全设置来绕过。
 
 容器由 `GOODGOODSTUDY_ICLOUD_CONTAINER` 构建设置提供，原生桥读取的 Info.plist 键为 `GoodGoodStudyICloudContainerIdentifier`，其值为 `$(GOODGOODSTUDY_ICLOUD_CONTAINER)`。两类 entitlement 的容器数组也引用同一构建宏；各构建配置应保留明确的源码默认值。改为自有容器时同时修改两端默认值和对应签名授权。不要把 Apple Account 密码、证书或 profile 提交到仓库。
 

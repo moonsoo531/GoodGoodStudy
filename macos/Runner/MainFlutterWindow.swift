@@ -37,10 +37,40 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     ICloudSyncPlugin.register(with: flutterViewController.registrar(forPlugin: "ICloudSyncPlugin"))
+    configureAppInfoChannel(flutterViewController)
     configureLocalFilesChannel(flutterViewController)
     configureWindowInteractions()
 
     super.awakeFromNib()
+  }
+
+  private func configureAppInfoChannel(_ controller: FlutterViewController) {
+    let channel = FlutterMethodChannel(name: "goodgoodstudy/app_info", binaryMessenger: controller.engine.binaryMessenger)
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "getInfo":
+        result([
+          "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+          "buildNumber": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+        ])
+      case "openLink":
+        guard let raw = (call.arguments as? [String: Any])?["url"] as? String,
+              let url = URL(string: raw), url.scheme == "https", url.host == "github.com",
+              url.user == nil, url.password == nil, url.port == nil,
+              url.query == nil, url.fragment == nil,
+              ["/moonsoo531/GoodGoodStudy", "/moonsoo531/GoodGoodStudy/blob/main/LICENSE",
+               "/moonsoo531/GoodGoodStudy/blob/main/THIRD_PARTY_NOTICES.md",
+               "/moonsoo531/GoodGoodStudy/blob/main/docs/privacy-policy.md",
+               "/moonsoo531/GoodGoodStudy/blob/main/docs/study-package-v1.md",
+               "/moonsoo531/GoodGoodStudy/blob/main/docs/quiz-package-v1.md"].contains(url.path) else {
+          result(false)
+          return
+        }
+        result(NSWorkspace.shared.open(url))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 
   deinit {

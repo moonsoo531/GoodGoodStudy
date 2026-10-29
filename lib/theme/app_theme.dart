@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../l10n/app_language.dart';
 import '../l10n/app_localizations.dart';
+import '../support/support_pages.dart';
+import '../support/support_strings.dart';
 import '../sync/resource_sync_controller.dart';
 import '../sync/sync_settings.dart';
 import '../sync/sync_strings.dart';
@@ -125,7 +127,7 @@ ThemeData buildAppTheme(Brightness brightness) {
   );
 }
 
-enum _SettingsDestination { sync }
+enum _SettingsDestination { sync, importHelp, about }
 
 /// Shared settings entry, available on the player, study and quiz pages.
 class ThemeMenuButton extends StatelessWidget {
@@ -200,6 +202,22 @@ class ThemeMenuButton extends StatelessWidget {
                           .pop(_SettingsDestination.sync),
                 ),
               ],
+              const Divider(),
+              ListTile(
+                key: const ValueKey('import-help-settings'),
+                leading: const Icon(Icons.help_outline_rounded),
+                title: Text(SupportStrings(dialogContext).importHelp),
+                onTap: () =>
+                    Navigator.of(dialogContext)
+                        .pop(_SettingsDestination.importHelp),
+              ),
+              ListTile(
+                key: const ValueKey('about-app-settings'),
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(SupportStrings(dialogContext).about),
+                onTap: () =>
+                    Navigator.of(dialogContext).pop(_SettingsDestination.about),
+              ),
             ],
           ),
         );
@@ -209,6 +227,14 @@ class ThemeMenuButton extends StatelessWidget {
         if (selection == null || !context.mounted) return;
         if (selection == _SettingsDestination.sync) {
           await showSyncSettings(context);
+          return;
+        }
+        if (selection == _SettingsDestination.importHelp) {
+          await showImportHelp(context);
+          return;
+        }
+        if (selection == _SettingsDestination.about) {
+          await showAppAbout(context);
           return;
         }
         try {

@@ -1368,7 +1368,10 @@ class _StudyPageState extends State<StudyPage> {
                     key: const ValueKey('study-audio-controls'),
                     children: [
                       Expanded(
-                        child: Row(
+                        child: Wrap(
+                          spacing: compact ? 0 : 12,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (compact)
                               SizedBox(
@@ -1457,7 +1460,6 @@ class _StudyPageState extends State<StudyPage> {
                                             changeScope(selection.single),
                                 ),
                               ),
-                            SizedBox(width: compact ? 0 : 12),
                             Tooltip(
                               message: context.tr('循环次数 · {status}', {
                                 'status': status,
@@ -1490,8 +1492,7 @@ class _StudyPageState extends State<StudyPage> {
                                 ),
                               ),
                             ),
-                            if (!compact) ...[
-                              const SizedBox(width: 8),
+                            if (!compact)
                               SizedBox(
                                 width: 36,
                                 child: IconButton(
@@ -1500,7 +1501,6 @@ class _StudyPageState extends State<StudyPage> {
                                   icon: const Icon(Icons.replay_rounded),
                                 ),
                               ),
-                            ],
                           ],
                         ),
                       ),
@@ -1583,8 +1583,10 @@ class _StudyPageState extends State<StudyPage> {
                         ),
                       ),
                       Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (!_audioReady &&
                                 !_loading &&

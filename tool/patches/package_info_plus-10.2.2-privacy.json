@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "package": "package_info_plus",
+  "version": "10.2.2",
+  "pub_archive_sha256": "73ef2cd5c11a7548f9b7f6fc2a4f6113de2e64aa2a70de63feede95548822908",
+  "original_manifest_sha256": "6d2da0d8d930227d428c1d9363b0ad6e3a12e2c9b68c5ce297158a7412fc8c31",
+  "patched_manifest_sha256": "37f23fa7aabe84ee3c9a1f162c2c036612e5142aa6e3ce1dfc711161572d3131",
+  "original_manifest_utf8": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n\t<key>NSPrivacyTrackingDomains</key>\n\t<array/>\n\t<key>NSPrivacyAccessedAPITypes</key>\n\t<array/>\n\t<key>NSPrivacyCollectedDataTypes</key>\n\t<array/>\n\t<key>NSPrivacyTracking</key>\n\t<false/>\n</dict>\n</plist>\n",
+  "source_implementation_sha256": "24d5bed1b615d38e79f8b75d59e7ac372aba828d08e3b86df85b1a6dbe7c9c39",
+  "release_url": "https://pub.dev/packages/package_info_plus/versions/10.2.2",
+  "upstream_issue": "https://github.com/fluttercommunity/plus_plugins/issues/3627",
+  "license": "BSD-3-Clause",
+  "retained_license": "licenses/package_info_plus-10.2.2.txt",
+  "target_relative_to_contents": "package_info_plus_package_info_plus.bundle/PrivacyInfo.xcprivacy",
+  "reason": {
+    "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+    "value": "C617.1",
+    "purpose": "SDK getInstallDate/getUpdateDate reads only the host application own Documents directory and app bundle metadata."
+  },
+  "patch_owner": "GoodGoodStudy project maintainers",
+  "upstream_status_as_of_2026_10_30": "No released upstream fix was found; this is a local build-resource patch, not an upstream release.",
+  "mutation_root_environment": "TARGET_BUILD_DIR",
+  "archive_alias_policy": "BUILT_PRODUCTS_DIR and TARGET_BUILD_DIR must be equal, or share the exact Xcode ArchiveIntermediates scheme root with BuildProductsPath/<configuration>-<platform> and InstallationBuildProductsLocation/Applications; the app alias must resolve exactly to the real installed app. SDK resource symlinks remain forbidden."
+}
