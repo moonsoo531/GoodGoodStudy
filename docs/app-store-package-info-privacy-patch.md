@@ -47,6 +47,8 @@ iOS Runner 的专用 build phase 在所有相关资源复制、Flutter embed 完
 
 ## 验证
 
+Xcode 的部分模拟器配置会先对 SDK 资源 bundle 做 ad-hoc 签名，此时脚本会按上述规则拒绝修改。已验证的本地模拟器验收使用独立 DerivedData 和 `CODE_SIGNING_ALLOWED=NO` 的 Debug 构建，保持该资源未签名；不要沿用先前已签资源的构建缓存。此设置仅用于本地模拟器，真机 Archive 和安装包仍使用正常 Apple 签名。本项目不会通过移除已签 SDK 的签名来让检查通过。
+
 本项目提供 12 项专项测试，覆盖固定目标写入、声明保留、幂等、只读检查、版本/checksum 不匹配、未知 manifest、符号链接、越界路径、嵌套签名、缺资源，以及标准 Archive alias 和不可信 alias 拒绝：
 
 ```sh

@@ -5,7 +5,7 @@ const Map<String, List<String>> studyStrings = {
   '导入日语学习包': ['日本語学習パッケージを読み込む', 'Import Japanese study package'],
   '循环次数': ['繰り返し回数', 'Repeat count'],
   '无限': ['無制限', 'Unlimited'],
-  '{count} 遍': ['{count} 回', '{count} passes'],
+  '{count} 遍': ['{count} 回', 'Plays: {count}'],
   '语法': ['文法', 'Grammar'],
   '词汇': ['語彙', 'Vocabulary'],
   '我的笔记': ['自分のノート', 'My notes'],
@@ -52,10 +52,10 @@ const Map<String, List<String>> studyStrings = {
     'Sentence {current} / {total}',
   ],
   '整段音频': ['文章全体の音声', 'Full passage audio'],
-  '已完成 {count} 遍': ['{count} 回完了', 'Completed: {count} passes'],
+  '已完成 {count} 遍': ['{count} 回完了', 'Completed plays: {count}'],
   '已播 {completed}/{count} 遍': [
     '再生回数 {completed}/{count}',
-    'Played: {completed}/{count} passes',
+    'Plays: {completed}/{count}',
   ],
   '未提供逐句时间点，可用快捷键播放／暂停。': [
     '文ごとの時間情報がありません。ショートカットで再生・一時停止できます。',
