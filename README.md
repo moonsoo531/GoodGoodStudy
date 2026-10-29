@@ -2,7 +2,9 @@
 
 <img src="assets/branding/goodgoodstudy-icon.png" width="96" alt="GoodGoodStudy icon">
 
-当前版本：**0.7.0+25**。
+当前版本：**0.7.1+26**。
+
+当前暂定图标为 D4-3：浅桃粉背景、薄荷与白色层叠书页、桃色书签。
 
 GoodGoodStudy 是一个使用本地资料的学习工具，提供 **学习、测试、本地播放** 三个平级入口。首次打开显示首页；之后恢复上一次使用的模块，也可通过页面展开菜单切换。界面支持中文、日本語和 English，主题支持浅色、深色及跟随系统。
 
@@ -20,6 +22,8 @@ GoodGoodStudy 是一个使用本地资料的学习工具，提供 **学习、测
 格式说明：[学习包](docs/study-package-v1.md)、[测验包](docs/quiz-package-v1.md)。文档中的短句与题目是为解释格式编写的合成示例，不是随应用发行的教材。
 
 ## 界面预览
+
+以下为页面结构预览，截图采用图标更新前的版本；当前图标见本文顶部。
 
 <img src="docs/images/home-phone-zh.png" width="250" alt="手机首页">
 <img src="docs/images/home-desktop-zh.png" width="700" alt="桌面首页">
