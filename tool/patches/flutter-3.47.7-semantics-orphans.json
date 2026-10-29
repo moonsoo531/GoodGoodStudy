@@ -1,0 +1,23 @@
+{
+  "upstream_pr": "https://github.com/flutter/flutter/pull/193372",
+  "upstream_patch_source": "https://api.github.com/repos/flutter/flutter/pulls/193372/files",
+  "upstream_head": "7d952a357a7ebad804fb3e6dadca6e0fd2f394f3",
+  "upstream_merged_date": "2026-10-19",
+  "runtime_file": "packages/flutter/lib/src/semantics/semantics.dart",
+  "sdk": {
+    "frameworkVersion": "3.47.7",
+    "frameworkRevision": "abaf9c523780a608bd46686fd5e53740a07077f8",
+    "engineRevision": "deb287481e3ce9468f3434937ced4240a70539ca"
+  },
+  "base_sha256": "b76165c41486de81d1b5df499b616064966ec3fc1509b100c42c296829c7590b",
+  "target_sha256": "a2a4da249162739403ed5cd410b8e7241def868f20bd79d2faac8a5275ab690a",
+  "patch_file": "flutter-3.47.7-semantics-orphans.patch",
+  "patch_sha256": "39ea095edda11548d9fc3883dd985ad4bb8b646d92c2d33e3ad6ed1e62195e9f",
+  "upstream_tests_patch": "flutter-pr-193372-upstream-tests.patch",
+  "upstream_tests_patch_sha256": "c7e5fb519fd24eb45e8cff683ea442bae2edf41069e4d61efa15f64ee3058b1d",
+  "runtime_files_changed": 1,
+  "framework_additions": 119,
+  "framework_deletions": 14,
+  "engine_changed": false,
+  "license": "Flutter BSD 3-Clause; original SDK LICENSE remains in place"
+}

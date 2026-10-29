@@ -1,0 +1,712 @@
+{
+  "declared_dependencies": {
+    "archive": {
+      "constraint": "4.5.2",
+      "section": "dependencies"
+    },
+    "crypto": {
+      "constraint": "3.0.7",
+      "section": "dependencies"
+    },
+    "file_picker": {
+      "constraint": "12.3.0",
+      "section": "dependencies"
+    },
+    "flutter": {
+      "sdk": "flutter",
+      "section": "dependencies"
+    },
+    "flutter_lints": {
+      "constraint": "^6.0.0",
+      "section": "dev_dependencies"
+    },
+    "flutter_localizations": {
+      "sdk": "flutter",
+      "section": "dependencies"
+    },
+    "flutter_test": {
+      "sdk": "flutter",
+      "section": "dev_dependencies"
+    },
+    "media_kit": {
+      "constraint": "^1.2.6",
+      "section": "dependencies"
+    },
+    "media_kit_libs_macos_video": {
+      "constraint": "1.1.4",
+      "section": "dependencies"
+    },
+    "media_kit_video": {
+      "constraint": "^2.0.1",
+      "section": "dependencies"
+    },
+    "path_provider": {
+      "constraint": "2.1.6",
+      "section": "dependencies"
+    }
+  },
+  "generated_swift_manifest_sha256": {
+    "ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift": "9bb4aa0b8ebd4423efd10cb5cc1276b5d75ece9792ee536f50fe95c37a7a9bb4",
+    "macos/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift": "a68e978208572e32da3f3c5898e3fc60a81c5776b9d6f2f3a22528cc26424108"
+  },
+  "native_dependency_lock_sha256": {
+    "ios/Podfile.lock": "e463c5b4e01a292ef50bcb0101514c4de43f4eeccd99d7014d626e06af1557f8",
+    "macos/Podfile.lock": "2caea5c53f144e1b2d7853bc218e87d111fd8c7d476f268832a0b4e2a300c8e3"
+  },
+  "packages": {
+    "android_file_picker": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "014c74ab48d452c3252465682375a7fe6ddf56abb908ec361f207a3c4ffb2444",
+      "source": "hosted",
+      "version": "1.1.1"
+    },
+    "archive": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "0d58d1fa1fddf6588251ccf2819f3fb3b6d0452c1b2813ac7413a05592bfbefe",
+      "source": "hosted",
+      "version": "4.5.2"
+    },
+    "args": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "d0481093c50b1da8910eb0bb301626d4d8eb7284aa739614d2b394ee09e3ea04",
+      "source": "hosted",
+      "version": "2.7.0"
+    },
+    "async": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "e2eb0491ba5ddb6177742d2da23904574082139b07c1e33b8503b9f46f3e1a37",
+      "source": "hosted",
+      "version": "2.13.1"
+    },
+    "boolean_selector": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "8aab1771e1243a5063b8b0ff68042d67334e3feab9e95b9490f9a6ebf73b42ea",
+      "source": "hosted",
+      "version": "2.1.2"
+    },
+    "characters": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b",
+      "source": "hosted",
+      "version": "1.4.1"
+    },
+    "clock": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "e51d50bca3217c9a9fa2b41a30e4a38971133f5f9ec7a3d57bae095007f1d28e",
+      "source": "hosted",
+      "version": "1.1.3"
+    },
+    "code_assets": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "bf394f466ba9205f1812a0433b392d6af280f155f56651eda7c18cc32ed493b8",
+      "source": "hosted",
+      "version": "1.2.1"
+    },
+    "collection": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "2f5709ae4d3d59dd8f7cd309b4e023046b57d8a6c82130785d2b0e5868084e76",
+      "source": "hosted",
+      "version": "1.19.1"
+    },
+    "cross_file": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "f141ea4f277af142a0356955707f6556f37b03947d39d55585981a06ca437bd6",
+      "source": "hosted",
+      "version": "0.3.5+5"
+    },
+    "crypto": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf",
+      "source": "hosted",
+      "version": "3.0.7"
+    },
+    "dbus": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "a48d5da28e89bd02196e80d81ed8d7954923d00a0f4a68cc20b575038f023383",
+      "source": "hosted",
+      "version": "0.7.15"
+    },
+    "fake_async": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "5368f224a74523e8d2e7399ea1638b37aecfca824a3cc4dfdf77bf1fa905ac44",
+      "source": "hosted",
+      "version": "1.3.3"
+    },
+    "ffi": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45",
+      "source": "hosted",
+      "version": "2.2.0"
+    },
+    "ffi_leak_tracker": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "4093d4ef9ca06ffe2786e73bfb25e22aa92112b9bb4ec941f11e3e6b61489a97",
+      "source": "hosted",
+      "version": "0.1.2"
+    },
+    "file_picker": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "9be6aac79508dbcf8dac80a4fb20f27ce6f910837ca27e3670b9295995cc0110",
+      "source": "hosted",
+      "version": "12.3.0"
+    },
+    "file_picker_darwin": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "59fa5394cfa5b6dc8bf491630cb17077b77b844adbb840df371e7be5355d6cf6",
+      "source": "hosted",
+      "version": "1.2.0"
+    },
+    "file_picker_linux": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "bd52ff1e0048f29df95f913c55ad2991c72791d93e6c42241912c4bdee946cb9",
+      "source": "hosted",
+      "version": "1.1.0"
+    },
+    "file_picker_platform_interface": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "0355558fd9af6da499d18e333d6b3beb44b0bf19e00933fccd15d18eb8d0e9ca",
+      "source": "hosted",
+      "version": "3.4.0"
+    },
+    "file_picker_web": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "935560a9d29fa6f006f2855addebb88e88d438e13627d4cc24187033c106f227",
+      "source": "hosted",
+      "version": "3.1.0"
+    },
+    "fixnum": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "b6dc7065e46c974bc7c5f143080a6764ec7a4be6da1285ececdc37be96de53be",
+      "source": "hosted",
+      "version": "1.1.1"
+    },
+    "flutter": {
+      "dependency": "direct main",
+      "section": "packages",
+      "source": "sdk",
+      "version": "0.0.0"
+    },
+    "flutter_lints": {
+      "dependency": "direct dev",
+      "section": "packages",
+      "sha256": "3105dc8492f6183fb076ccf1f351ac3d60564bff92e20bfc4af9cc1651f4e7e1",
+      "source": "hosted",
+      "version": "6.0.0"
+    },
+    "flutter_localizations": {
+      "dependency": "direct main",
+      "section": "packages",
+      "source": "sdk",
+      "version": "0.0.0"
+    },
+    "flutter_test": {
+      "dependency": "direct dev",
+      "section": "packages",
+      "source": "sdk",
+      "version": "0.0.0"
+    },
+    "flutter_web_plugins": {
+      "dependency": "transitive",
+      "section": "packages",
+      "source": "sdk",
+      "version": "0.0.0"
+    },
+    "hooks": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "9a62a50b50b769a737bc0a8ff381f333529df3ab746b2f6b02e83760231455ba",
+      "source": "hosted",
+      "version": "2.0.2"
+    },
+    "http": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412",
+      "source": "hosted",
+      "version": "1.6.0"
+    },
+    "http_parser": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "178d74305e7866013777bab2c3d8726205dc5a4dd935297175b19a23a2e66571",
+      "source": "hosted",
+      "version": "4.1.2"
+    },
+    "image": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "89ed75b2f8231fe676808c5564f9590d728024ded7ac782a7ed8474f1c95b72a",
+      "source": "hosted",
+      "version": "4.12.0"
+    },
+    "intl": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867",
+      "source": "hosted",
+      "version": "0.20.3"
+    },
+    "jni": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "6b9ca0602fef0230e83149afbe3f9f8227e94f2bbe84a1da4f14d699742f402d",
+      "source": "hosted",
+      "version": "1.1.0"
+    },
+    "jni_flutter": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "0dd33d67797560f66e961a6053882d4df54bd345bf063b8fe7ea133f7ad8b191",
+      "source": "hosted",
+      "version": "1.0.4+1"
+    },
+    "jni_util": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "1ba86da04a5f2bf18fde2edb235587e70c5b0fc5bd4ba955f46b00942c3fc35f",
+      "source": "hosted",
+      "version": "1.0.0"
+    },
+    "leak_tracker": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "33e2e26bdd85a0112ec15400c8cbffea70d0f9c3407491f672a2fad47915e2de",
+      "source": "hosted",
+      "version": "11.0.2"
+    },
+    "leak_tracker_flutter_testing": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "1dbc140bb5a23c75ea9c4811222756104fbcd1a27173f0c34ca01e16bea473c1",
+      "source": "hosted",
+      "version": "3.0.10"
+    },
+    "leak_tracker_testing": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "8d5a2d49f4a66b49744b23b018848400d23e54caf9463f4eb20df3eb8acb2eb1",
+      "source": "hosted",
+      "version": "3.0.2"
+    },
+    "lints": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "12f842a479589fea194fe5c5a3095abc7be0c1f2ddfa9a0e76aed1dbd26a87df",
+      "source": "hosted",
+      "version": "6.1.0"
+    },
+    "logging": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61",
+      "source": "hosted",
+      "version": "1.3.0"
+    },
+    "matcher": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "31bd099b47c10cd1aeb55146a2d46ce0277630ecef3f7dae54ad7873f36696cd",
+      "source": "hosted",
+      "version": "0.12.20"
+    },
+    "material_color_utilities": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b",
+      "source": "hosted",
+      "version": "0.13.0"
+    },
+    "media_kit": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "ae9e79597500c7ad6083a3c7b7b7544ddabfceacce7ae5c9709b0ec16a5d6643",
+      "source": "hosted",
+      "version": "1.2.6"
+    },
+    "media_kit_libs_macos_video": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "f26aa1452b665df288e360393758f84b911f70ffb3878032e1aabba23aa1032d",
+      "source": "hosted",
+      "version": "1.1.4"
+    },
+    "media_kit_video": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "afaa509e7b7e0bf247557a3a740cde903a52c34ace9810f94500e127bd7b043d",
+      "source": "hosted",
+      "version": "2.0.1"
+    },
+    "meta": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "c82594181e3312f3d0695fc95aaaf7758d75b8d4ae2bbecf223b9fd5109a059d",
+      "source": "hosted",
+      "version": "1.18.3"
+    },
+    "objective_c": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "b7fb95a6d9a4f009edd63dc5ac69f07420b23a16161c6dd8660290b59c602e8e",
+      "source": "hosted",
+      "version": "9.5.0"
+    },
+    "package_config": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "ffcf4cf3d6c0b74ac43708d9f56625506e8a68aa935abe9d267a7330f320eb5d",
+      "source": "hosted",
+      "version": "3.0.0"
+    },
+    "package_info_plus": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "73ef2cd5c11a7548f9b7f6fc2a4f6113de2e64aa2a70de63feede95548822908",
+      "source": "hosted",
+      "version": "10.2.2"
+    },
+    "package_info_plus_platform_interface": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "db762cb2f4f25ee60fb6359773861b0f199e00b90d237bd85a76a1e806b46ef4",
+      "source": "hosted",
+      "version": "4.1.0"
+    },
+    "path": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "75cca69d1490965be98c73ceaea117e8a04dd21217b37b292c9ddbec0d955bc5",
+      "source": "hosted",
+      "version": "1.9.1"
+    },
+    "path_provider": {
+      "dependency": "direct main",
+      "section": "packages",
+      "sha256": "a7f4874f987173da295a61c181b8ee71dab59b332a486b391babf26a1b884825",
+      "source": "hosted",
+      "version": "2.1.6"
+    },
+    "path_provider_android": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "69cbd515a62b94d32a7944f086b2f82b4ac40a1d45bebfc00813a430ab2dabcd",
+      "source": "hosted",
+      "version": "2.3.1"
+    },
+    "path_provider_foundation": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "2a376b7d6392d80cd3705782d2caa734ca4727776db0b6ec36ef3f1855197699",
+      "source": "hosted",
+      "version": "2.6.0"
+    },
+    "path_provider_linux": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "58c2005f147315b11e9b4a7bc889cd5203e250cba8e3f012dae259b4972b5c16",
+      "source": "hosted",
+      "version": "2.2.2"
+    },
+    "path_provider_platform_interface": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "484838772624c3a4b94f1e44a3e19897fee738f2d5c4ce448443b0417f7c9dda",
+      "source": "hosted",
+      "version": "2.1.3"
+    },
+    "path_provider_windows": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "bd6f00dbd873bfb70d0761682da2b3a2c2fccc2b9e84c495821639601d81afe7",
+      "source": "hosted",
+      "version": "2.3.0"
+    },
+    "petitparser": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "91bd59303e9f769f108f8df05e371341b15d59e995e6806aefab827b58336675",
+      "source": "hosted",
+      "version": "7.0.2"
+    },
+    "platform": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "a36d119c13416516a7b5913fbe8af8531e11633d784c550b2125f76c758524ec",
+      "source": "hosted",
+      "version": "3.2.0"
+    },
+    "plugin_platform_interface": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02",
+      "source": "hosted",
+      "version": "2.1.8"
+    },
+    "posix": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "bc1bad54ad2b735816e31f8d4600cfde6c7839975085ddfbca48b6c9f7c4044e",
+      "source": "hosted",
+      "version": "6.5.2"
+    },
+    "pub_semver": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "261236774e8b1d69cfc6b9eabbc96c40f25e7a2d6b171f3385d4f65d5734fb24",
+      "source": "hosted",
+      "version": "2.2.1"
+    },
+    "record_use": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "2551bd8eecfe95d14ae75f6021ad0248be5c27f138c2ec12fcb52b500b3ba1ed",
+      "source": "hosted",
+      "version": "0.6.0"
+    },
+    "safe_local_storage": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "494b982d5edb71030650ea463d939670e91b232b588323dc75229d2c5f23e7b7",
+      "source": "hosted",
+      "version": "2.0.6"
+    },
+    "sky_engine": {
+      "dependency": "transitive",
+      "section": "packages",
+      "source": "sdk",
+      "version": "0.0.0"
+    },
+    "source_span": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "56a02f1f4cd1a2d96303c0144c93bd6d909eea6bee6bf5a0e0b685edbd4c47ab",
+      "source": "hosted",
+      "version": "1.10.2"
+    },
+    "stack_trace": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "277654b3034d17ac6f9f1cb5595db011b1d5d41e8806866db28e0abaa101c490",
+      "source": "hosted",
+      "version": "1.12.2"
+    },
+    "stream_channel": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "969e04c80b8bcdf826f8f16579c7b14d780458bd97f56d107d3950fdbeef059d",
+      "source": "hosted",
+      "version": "2.1.4"
+    },
+    "string_scanner": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "921cd31725b72fe181906c6a94d987c78e3b98c2e205b397ea399d4054872b43",
+      "source": "hosted",
+      "version": "1.4.1"
+    },
+    "synchronized": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "b3d516dbd3757ff2a458735e4f6cbac9ff261f576f6e87bcb17feabb39e657c5",
+      "source": "hosted",
+      "version": "3.5.0"
+    },
+    "term_glyph": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "7f554798625ea768a7518313e58f83891c7f5024f88e46e7182a4558850a4b8e",
+      "source": "hosted",
+      "version": "1.2.2"
+    },
+    "test_api": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11",
+      "source": "hosted",
+      "version": "0.7.12"
+    },
+    "typed_data": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "f9049c039ebfeb4cf7a7104a675823cd72dba8297f264b6637062516699fa006",
+      "source": "hosted",
+      "version": "1.4.0"
+    },
+    "universal_platform": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "64e16458a0ea9b99260ceb5467a214c1f298d647c659af1bff6d3bf82536b1ec",
+      "source": "hosted",
+      "version": "1.1.0"
+    },
+    "uri_parser": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "051c62e5f693de98ca9f130ee707f8916e2266945565926be3ff20659f7853ce",
+      "source": "hosted",
+      "version": "3.0.2"
+    },
+    "uuid": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "9b129329f58692f6e6578329498a8fe9fbe98f090beb764ffbb8ee2eadd01dcd",
+      "source": "hosted",
+      "version": "4.6.0"
+    },
+    "vector_math": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "1d774bbdf6b72a0b12122fc1560c9c2d2a67db5a4a4cc2bd8a5c990ab20e3188",
+      "source": "hosted",
+      "version": "2.4.0"
+    },
+    "vm_service": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "89b11d62e1040ee681af3b4f1c97a803ecbf010c6e8b9c5896ee5b08c3bf7b78",
+      "source": "hosted",
+      "version": "15.4.0"
+    },
+    "wakelock_plus": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "22b3e7e937721de70e63c85e7139f4ac781dc22863b9262431a53ac030eb074b",
+      "source": "hosted",
+      "version": "1.8.0"
+    },
+    "wakelock_plus_platform_interface": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "764c25504562abc8ac3406f5d175f126b276e6ba916c7c2675690b73368ca384",
+      "source": "hosted",
+      "version": "1.7.0"
+    },
+    "web": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "e119e82ac4795c7925103b7cf3768191f33941b99e7ccffbd6c645201d9f606b",
+      "source": "hosted",
+      "version": "1.1.2"
+    },
+    "win32": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "a0b93865d5644f11cf6a8c3f6db909f1ec168958b5805f6cc684adea957cd63d",
+      "source": "hosted",
+      "version": "6.4.0"
+    },
+    "windows_file_picker": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "62e6e6e115231d1d1d71c7b5883b4091ce3e0190e49548dfb0ff8cba8d91ad96",
+      "source": "hosted",
+      "version": "1.3.0"
+    },
+    "xdg_directories": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "7a3f37b05d989967cdddcbb571f1ea834867ae2faa29725fd085180e0883aa15",
+      "source": "hosted",
+      "version": "1.1.0"
+    },
+    "xml": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "67f0aff7be013d107995e9b75bf4e7f2c3ef2dfdb2c8e68024bba0a7fd5756a4",
+      "source": "hosted",
+      "version": "7.0.1"
+    },
+    "yaml": {
+      "dependency": "transitive",
+      "section": "packages",
+      "sha256": "f67cdd8e07d3c6329146aaef1ba043542b3134c12489f553ca9a7435d1068aea",
+      "source": "hosted",
+      "version": "3.1.4"
+    }
+  },
+  "plugins": {
+    "android": [
+      "android_file_picker",
+      "jni",
+      "jni_flutter",
+      "media_kit_video",
+      "package_info_plus",
+      "path_provider_android",
+      "wakelock_plus"
+    ],
+    "ios": [
+      "file_picker_darwin",
+      "media_kit_video",
+      "package_info_plus",
+      "path_provider_foundation",
+      "wakelock_plus"
+    ],
+    "linux": [
+      "file_picker_linux",
+      "jni",
+      "media_kit_video",
+      "package_info_plus",
+      "path_provider_linux",
+      "wakelock_plus"
+    ],
+    "macos": [
+      "file_picker_darwin",
+      "media_kit_libs_macos_video",
+      "media_kit_video",
+      "package_info_plus",
+      "path_provider_foundation",
+      "wakelock_plus"
+    ],
+    "web": [
+      "file_picker_web",
+      "package_info_plus",
+      "wakelock_plus"
+    ],
+    "windows": [
+      "jni",
+      "media_kit_video",
+      "package_info_plus",
+      "path_provider_windows",
+      "wakelock_plus",
+      "windows_file_picker"
+    ]
+  },
+  "pubspec_lock_sha256": "87d155bfdab03d7ddf6a4dddaddc600dd157b9edf7c663d44de748b4d718e9d7",
+  "registrant_imports": {
+    "ios/Runner/GeneratedPluginRegistrant.h": [],
+    "ios/Runner/GeneratedPluginRegistrant.m": [
+      "file_picker_darwin",
+      "media_kit_video",
+      "package_info_plus",
+      "wakelock_plus"
+    ],
+    "macos/Flutter/GeneratedPluginRegistrant.swift": [
+      "file_picker_darwin",
+      "media_kit_libs_macos_video",
+      "media_kit_video",
+      "package_info_plus",
+      "wakelock_plus"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+GOODGOOD_PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -n "${FLUTTER_ROOT:-}" ]; then
+  GOODGOOD_FLUTTER_BIN="$FLUTTER_ROOT/bin/flutter"
+else
+  GOODGOOD_FLUTTER_BIN=$(command -v flutter || true)
+fi
+if [ -z "$GOODGOOD_FLUTTER_BIN" ] || [ ! -x "$GOODGOOD_FLUTTER_BIN" ]; then
+  printf '%s\n' 'Flutter not found. Add flutter to PATH or set FLUTTER_ROOT to your SDK directory.' >&2
+  exit 1
+fi
+GOODGOOD_FLUTTER_SDK=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().parents[1])' "$GOODGOOD_FLUTTER_BIN")
+export FLUTTER_SUPPRESS_ANALYTICS=true DASH__SUPPRESS_ANALYTICS=true COCOAPODS_DISABLE_STATS=true
+case "${1:-}" in
+  --check-sdk-patch)
+    exec python3 "$GOODGOOD_PROJECT_ROOT/tool/apply_flutter_semantics_patch.py" --sdk "$GOODGOOD_FLUTTER_SDK" --check
+    ;;
+  --apply-sdk-patch)
+    exec python3 "$GOODGOOD_PROJECT_ROOT/tool/apply_flutter_semantics_patch.py" --sdk "$GOODGOOD_FLUTTER_SDK" --apply
+    ;;
+  build|run)
+    if [ "${GOODGOODSTUDY_SKIP_SDK_PATCH_CHECK:-0}" != 1 ]; then
+      python3 "$GOODGOOD_PROJECT_ROOT/tool/apply_flutter_semantics_patch.py" --sdk "$GOODGOOD_FLUTTER_SDK" --check
+    fi
+    ;;
+esac
+cd "$GOODGOOD_PROJECT_ROOT"
+exec "$GOODGOOD_FLUTTER_BIN" "$@"
