@@ -268,16 +268,21 @@ final class ICloudSyncPlugin: NSObject, FlutterPlugin {
         let plist = try PropertyListSerialization.propertyList(from: bytes.subdata(in: first..<last), options: [], format: nil) as? [String: Any],
         let entitlements = plist["Entitlements"] as? [String: Any]
       else { return false }
-      return Self.entitlementsPermit(entitlements, identifier)
+      return Self.entitlementsPermit(entitlements, identifier, allowsProfileServiceWildcard: true)
     } catch { return false }
     #endif
   }
 
-  private static func entitlementsPermit(_ values: [String: Any], _ identifier: String) -> Bool {
+  private static func entitlementsPermit(_ values: [String: Any], _ identifier: String, allowsProfileServiceWildcard: Bool = false) -> Bool {
     let containers = values["com.apple.developer.icloud-container-identifiers"] as? [String] ?? []
     let documents = values["com.apple.developer.ubiquity-container-identifiers"] as? [String] ?? []
     let services = values["com.apple.developer.icloud-services"] as? [String] ?? []
-    return containers.contains(identifier) && documents.contains(identifier) && services.contains("CloudDocuments")
+    // Apple development profiles may authorize every iCloud service with "*".
+    // Only profile evidence accepts this form; actual signed macOS entitlements
+    // must explicitly request CloudDocuments. Containers always remain explicit.
+    let serviceAllowed = services.contains("CloudDocuments")
+      || (allowsProfileServiceWildcard && (services.contains("*") || values["com.apple.developer.icloud-services"] as? String == "*"))
+    return containers.contains(identifier) && documents.contains(identifier) && serviceAllowed
   }
 
   private func publicStatus(_ value: Availability) -> [String: Any] {
