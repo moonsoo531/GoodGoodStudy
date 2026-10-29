@@ -27,13 +27,8 @@ class NavigationStrings {
   String get close => text('关闭', '閉じる', 'Close');
   String get headline =>
       text('今天，学一点新的。', '今日も、ひとつ学ぼう。', 'A little learning, every day.');
-  String get subtitle => text(
-    '选择一种方式，开始今天的学习。',
-    '学び方を選んで、今日の学習を始めましょう。',
-    'Choose how you would like to begin.',
-  );
   String get eyebrow =>
-      text('你的离线学习空间', 'あなたのオフライン学習空間', 'YOUR OFFLINE STUDY SPACE');
+      text('好好学习天天向上', '日々学び、日々成長。', 'Good good study, day day up');
   String description(AppSection section) => switch (section) {
     AppSection.study => text(
       '听读、回想与笔记，按自己的节奏掌握新知识。',
@@ -58,9 +53,9 @@ class NavigationStrings {
     'Listen to your own audio with subtitles.',
   );
   String get resources => text(
-    '资料默认保存在本机，可在设置中开启 iCloud 同步。',
-    '教材は通常この端末に保存されます。設定で iCloud 同期を有効にできます。',
-    'Materials are stored on this device by default. You can enable iCloud sync in settings.',
+    '同一Apple账号的多设备间通过iCloud自动同步。',
+    '同じ Apple アカウントのデバイス間で iCloud を使って自動同期します。',
+    'Automatically sync via iCloud across devices signed in to the same Apple Account.',
   );
   String get switching => text('正在切换…', '切り替え中…', 'Switching…');
   String get loading => text('正在打开…', '開いています…', 'Opening…');

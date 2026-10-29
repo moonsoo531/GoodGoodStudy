@@ -2,7 +2,7 @@
 
 <img src="assets/branding/goodgoodstudy-icon.png" width="96" alt="GoodGoodStudy icon">
 
-当前版本：**0.8.0+28**。
+当前版本：**0.8.1+29**。
 
 当前暂定图标为 D4-3：浅桃粉背景、薄荷与白色层叠书页、桃色书签。
 
@@ -26,7 +26,7 @@ iCloud 需要两端配置同一个共享容器并使用获得 iCloud 权限的�
 
 ## 界面预览
 
-以下为页面结构预览，截图采用图标更新前的版本；当前图标见本文顶部。
+以下为早期页面结构预览，实际文案与图标以当前版本为准。
 
 <img src="docs/images/home-phone-zh.png" width="250" alt="手机首页">
 <img src="docs/images/home-desktop-zh.png" width="700" alt="桌面首页">

@@ -161,14 +161,6 @@ class _HomePage extends StatelessWidget {
                       style: Theme.of(context).textTheme.headlineLarge
                           ?.copyWith(fontWeight: FontWeight.w700, height: 1.22),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      strings.subtitle,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        height: 1.6,
-                      ),
-                    ),
                     const SizedBox(height: 32),
                     LayoutBuilder(
                       builder: (context, constraints) {

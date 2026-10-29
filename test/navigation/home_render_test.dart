@@ -249,8 +249,8 @@ void main() {
 
         final resources = find.text(
           spec.$3 == 'zh'
-              ? '资源由你准备，所有资料保存在本机。'
-              : 'Bring your own resources. Your materials stay on this device.',
+              ? '同一Apple账号的多设备间通过iCloud自动同步。'
+              : 'Automatically sync via iCloud across devices signed in to the same Apple Account.',
         );
         expect(resources, findsOneWidget);
         await tester.ensureVisible(resources);
