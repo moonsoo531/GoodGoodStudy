@@ -69,9 +69,15 @@ class NavigationPreferences {
 /// Only one module is mounted. Leave guards finish before its widget is
 /// removed, and asynchronous shutdown completes before the next module mounts.
 class AppNavigationController extends ChangeNotifier {
-  AppNavigationController({NavigationPreferences? preferences})
-    : _preferences = preferences ?? NavigationPreferences();
+  AppNavigationController({
+    NavigationPreferences? preferences,
+    this.beforeEnter,
+  }) : _preferences = preferences ?? NavigationPreferences();
   final NavigationPreferences _preferences;
+
+  /// Applies already-downloaded local changes after the old module shuts down.
+  /// This hook must not wait for a cloud transfer.
+  final Future<void> Function()? beforeEnter;
   AppSection _section = AppSection.home;
   AppSection? _lastActivity;
   bool _loaded = false;
@@ -143,6 +149,8 @@ class AppNavigationController extends ChangeNotifier {
         _shutdownFailure = null;
         throw StateError('Module shutdown failed');
       }
+      await beforeEnter?.call();
+      if (_disposed) return;
       _beforeLeave = null;
       _section = target;
       if (target != AppSection.home) {

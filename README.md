@@ -2,7 +2,7 @@
 
 <img src="assets/branding/goodgoodstudy-icon.png" width="96" alt="GoodGoodStudy icon">
 
-当前版本：**0.7.2+27**。
+当前版本：**0.8.0+28**。
 
 当前暂定图标为 D4-3：浅桃粉背景、薄荷与白色层叠书页、桃色书签。
 
@@ -16,8 +16,11 @@ GoodGoodStudy 是一个使用本地资料的学习工具，提供 **学习、测
 - 测试：导入独立的单选题 ZIP，按设定题数与时间作答，保存未完成试卷、成绩和错题统计。
 - 本地播放：macOS 支持本地音视频和字幕；iOS 使用 Apple AVPlayer 播放本地音频及字幕。
 - 页面恢复只恢复位置和模块，不自动播放音频或自动开始新的考试。
+- 可选 iCloud 同步：在设置中开启后，同步已导入的学习包、题库、包内音频及学习笔记与进度；各设备保留本地副本，下载内容在完整校验后导入。冲突保留双方，可在同步设置中选择处理。
 
-学习资料、笔记、进度和考试记录保存在使用者自己的设备。不同资料包使用稳定 ID 与递增修订号更新，界面语言与主题偏好独立保存。
+资料默认保存在使用者自己的设备。iCloud 同步默认关闭，开启后由 Apple 将所选范围传输到同一 Apple Account 下的其他设备。未完成的测试、独立播放器文件、语言、主题与页面偏好保留在各设备。不同资料包使用稳定 ID 与递增修订号更新。
+
+iCloud 需要两端配置同一个共享容器并使用获得 iCloud 权限的签名。旧 wildcard iPhone profile 和 ad-hoc Mac 包不具备此权限；设置页会明确显示不可用原因。配置与范围见 [iCloud 同步说明](docs/icloud-sync.md)。
 
 格式说明：[学习包](docs/study-package-v1.md)、[测验包](docs/quiz-package-v1.md)。文档中的短句与题目是为解释格式编写的合成示例，不是随应用发行的教材。
 
@@ -30,9 +33,9 @@ GoodGoodStudy 是一个使用本地资料的学习工具，提供 **学习、测
 
 ## English / 日本語
 
-**English:** An offline study tool with three equal sections: Study, Quiz, and Local Media. It remembers the last section without automatically playing media or starting an exam. Bring your own lawfully obtained materials. No textbooks, question banks, recordings, or personal records are included.
+**English:** A local-first study tool with Study, Quiz, and Local Media. Optional iCloud Documents sync is off by default and requires authorized signing and a shared container. When enabled, it syncs imported study/quiz packages, included audio, study notes and progress across your devices. Bring your own lawfully obtained materials; no textbooks, question banks, recordings or personal records are bundled.
 
-**日本語:** 「学習」「テスト」「ローカル再生」を選べる学習ツールです。次回は前回使用した画面を開きますが、音声の自動再生や新しいテストの自動開始は行いません。教材・問題集・音声は同梱していません。利用権のある資料を各自で用意してください。
+**日本語:** 「学習」「テスト」「ローカル再生」を選べるローカル優先の学習ツールです。iCloud 同期は初期状態ではオフで、共有コンテナと適切な署名が必要です。有効にすると学習・テスト資料、付属音声、学習ノートと進捗を自分の端末間で同期します。教材・問題集・音声は同梱していません。利用権のある資料を各自で用意してください。
 
 ## 开发与构建 / Build
 

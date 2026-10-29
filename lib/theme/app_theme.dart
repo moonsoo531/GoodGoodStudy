@@ -6,6 +6,9 @@ import 'package:path_provider/path_provider.dart';
 
 import '../l10n/app_language.dart';
 import '../l10n/app_localizations.dart';
+import '../sync/resource_sync_controller.dart';
+import '../sync/sync_settings.dart';
+import '../sync/sync_strings.dart';
 
 /// Appearance is independent of playback and study data.
 class ThemePreferences {
@@ -122,6 +125,8 @@ ThemeData buildAppTheme(Brightness brightness) {
   );
 }
 
+enum _SettingsDestination { sync }
+
 /// Shared settings entry, available on the player, study and quiz pages.
 class ThemeMenuButton extends StatelessWidget {
   const ThemeMenuButton({super.key});
@@ -130,6 +135,7 @@ class ThemeMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppThemeScope.maybeOf(context);
     final language = AppLanguageScope.maybeOf(context);
+    final sync = ResourceSyncScope.maybeOf(context);
     if (theme == null) return const SizedBox.shrink();
     return IconButton(
       tooltip: context.tr(language == null ? '外观主题' : '设置'),
@@ -183,6 +189,17 @@ class ThemeMenuButton extends StatelessWidget {
                   child: Text(dialogContext.tr('仅切换界面语言，教材、字幕和题目保留原文。')),
                 ),
               ],
+              if (sync != null) ...[
+                const Divider(),
+                ListTile(
+                  key: const ValueKey('icloud-sync-settings'),
+                  leading: const Icon(Icons.cloud_outlined),
+                  title: Text(SyncStrings(dialogContext).title),
+                  onTap: () =>
+                      Navigator.of(dialogContext)
+                          .pop(_SettingsDestination.sync),
+                ),
+              ],
             ],
           ),
         );
@@ -190,6 +207,10 @@ class ThemeMenuButton extends StatelessWidget {
         // Do not rebuild native accessibility portal anchors during dismissal.
         await route.completed;
         if (selection == null || !context.mounted) return;
+        if (selection == _SettingsDestination.sync) {
+          await showSyncSettings(context);
+          return;
+        }
         try {
           if (selection is ThemeMode) {
             await theme.setThemeMode(selection);

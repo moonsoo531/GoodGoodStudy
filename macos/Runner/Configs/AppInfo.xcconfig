@@ -15,3 +15,6 @@ PRODUCT_BUNDLE_IDENTIFIER = dev.learnjapanese.offlinePlayer
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 dev.learnjapanese. All rights reserved.
+
+// Explicit shared iCloud Documents container; set this before provisioning.
+GOODGOODSTUDY_ICLOUD_CONTAINER = iCloud.dev.learnjapanese.offlinePlayer

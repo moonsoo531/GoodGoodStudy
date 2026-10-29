@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reviewable static checks for the offline application, not a network monitor."""
+"""Static checks for local-first use and the narrow, optional iCloud Documents bridge."""
 
 import argparse
 import hashlib
@@ -19,14 +19,15 @@ DENIED_PACKAGE = re.compile(
     r"amplitude|segment|appsflyer|adjust|admob|ads|advertising|analytics|"
     r"purchases|revenuecat|in_app_purchase|stripe|auth|sign_in|signin|"
     r"auto_updater|ota_update|hot_updater|shorebird|azure_speech|"
-    r"ai_sdk|openai|anthropic|google_generative_ai|remote_config)(?:_|$)",
+    r"ai_sdk|openai|anthropic|google_generative_ai|remote_config|"
+    r"icloud|cloudkit|ubiquity)(?:_|$)",
     re.I,
 )
 DENIED_PLUGIN = re.compile(
     r"posthog|sentry|firebase|supabase|appwrite|analytics|admob|"
     r"googlemobileads|revenuecat|purchases|inapppurchase|stripe|"
     r"google.?sign.?in|sign.?in.?with.?apple|azure.?speech|"
-    r"auto.?updater|ota.?update|sparkle|shorebird",
+    r"auto.?updater|ota.?update|sparkle|shorebird|icloud|cloudkit|ubiquity",
     re.I,
 )
 DENIED_HOST_SUFFIXES = (
@@ -60,6 +61,47 @@ NATIVE_SUFFIXES = {
     ".pbxproj", ".gradle", ".kts", ".kt", ".java", ".xml", ".cmake",
 }
 SDK_MODULES = {"Cocoa", "Foundation", "FlutterMacOS", "Flutter", "UIKit"}
+# This is an exception for Apple's OS-managed document transport, not permission
+# to add arbitrary networking or another cloud backend. Keep it out of the
+# dependency baseline: the bridge uses Foundation and adds no package/plugin.
+ICLOUD_BRIDGES = {
+    "ios/Runner/GoodGoodStudyICloudBridge.swift",
+    "macos/Runner/GoodGoodStudyICloudBridge.swift",
+}
+ICLOUD_ENTITLEMENTS = {
+    "ios/Runner/Runner.entitlements",
+    "macos/Runner/DebugProfile.entitlements",
+    "macos/Runner/Release.entitlements",
+}
+ICLOUD_CONTAINER_SETTING = "GOODGOODSTUDY_ICLOUD_CONTAINER"
+ICLOUD_CONTAINER_INFO_KEY = "GoodGoodStudyICloudContainerIdentifier"
+ICLOUD_CONTAINER_REFERENCES = {
+    "$(GOODGOODSTUDY_ICLOUD_CONTAINER)",
+    "${GOODGOODSTUDY_ICLOUD_CONTAINER}",
+}
+ICLOUD_DEFAULT_CONTAINER = "iCloud.dev.learnjapanese.offlinePlayer"
+ICLOUD_CONTAINER_IDENTIFIER = re.compile(r"iCloud\.[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*\Z")
+ICLOUD_CONTAINER_KEYS = {
+    "com.apple.developer.icloud-container-identifiers",
+    "com.apple.developer.ubiquity-container-identifiers",
+}
+ICLOUD_ALLOWED_ENTITLEMENT_KEYS = ICLOUD_CONTAINER_KEYS | {
+    "com.apple.developer.icloud-services",
+}
+ICLOUD_DOCUMENT_API = re.compile(
+    r"\b(?:[A-Za-z_]*[Uu]biquit(?:y|ous)[A-Za-z_]*|"
+    r"NSMetadata[A-Za-z_]*|NSFileCoordinator|NSFilePresenter)\b"
+)
+# CloudKit, key-value sync and persistent-cloud stores are outside this policy.
+# Their presence requires a new review, even within an approved bridge file.
+ICLOUD_OTHER_API = re.compile(
+    r"\b(?:CloudKit|CK[A-Z][A-Za-z_]*|NSUbiquitousKeyValueStore|"
+    r"NSPersistentCloudKitContainer)\b"
+)
+# CryptoKit hashes the OS account token; Security reads the Mac's own signed
+# entitlements. Neither import authorizes another cloud transport.
+ICLOUD_BRIDGE_IMPORTS = {"Foundation", "Flutter", "FlutterMacOS", "CryptoKit", "Security"}
+RUNTIME_CODE_SUFFIXES = {".swift", ".m", ".mm", ".h", ".dart"}
 
 
 def sha256(path):
@@ -103,6 +145,145 @@ def native_files(root):
                 continue
             if path.suffix in NATIVE_SUFFIXES or path.name in {"Podfile", "Podfile.lock", "CMakeLists.txt"}:
                 yield path
+
+
+def icloud_policy(root, paths, issue):
+    """Validate source capabilities; a pass cannot authorize a signed binary."""
+    entitlement_values = {}
+    info_values = {}
+    settings = {}
+    bridge_paths = []
+    configured = False
+    for path in paths:
+        relative = path.relative_to(root).as_posix()
+        if relative in ICLOUD_BRIDGES:
+            configured = True
+            bridge_paths.append(relative)
+            content = path.read_text(encoding="utf-8", errors="replace")
+            if "goodgoodstudy/icloud" not in content:
+                issue(path, "Reviewed iCloud bridge must use the goodgoodstudy/icloud channel")
+            if ICLOUD_CONTAINER_INFO_KEY not in content:
+                issue(path, "Reviewed iCloud bridge must read GoodGoodStudyICloudContainerIdentifier from Info.plist")
+            for module in re.findall(r"^\s*(?:@\w+\s+)?import\s+(\w+)", content, re.M):
+                if module not in ICLOUD_BRIDGE_IMPORTS:
+                    issue(path, f"Unreviewed import in the iCloud Documents bridge: {module}")
+        if path.suffix in {".pbxproj", ".xcconfig"}:
+            content = path.read_text(encoding="utf-8", errors="replace")
+            if "com.apple.iCloud" in content:
+                configured = True
+            for number, line in enumerate(content.splitlines(), 1):
+                match = re.match(r"\s*GOODGOODSTUDY_ICLOUD_CONTAINER\s*=\s*(.*?)\s*;?\s*$", line)
+                if match:
+                    value = match.group(1).rstrip(";").strip().strip('"')
+                    settings.setdefault(relative.split("/", 1)[0], []).append((path, number, value))
+                    configured = True
+        if path.suffix not in {".plist", ".entitlements"}:
+            continue
+        try:
+            values = plistlib.loads(path.read_bytes())
+        except (plistlib.InvalidFileException, ValueError):
+            # Entitlement syntax errors are also reported by the general check.
+            if path.name == "Info.plist":
+                issue(path, "Cannot inspect iCloud configuration in malformed Info.plist")
+            continue
+        if not isinstance(values, dict):
+            continue
+        if path.suffix == ".entitlements":
+            cloud = {
+                key: value for key, value in values.items()
+                if "icloud" in key.lower() or "ubiquity" in key.lower()
+            }
+            if cloud:
+                configured = True
+                entitlement_values[relative] = cloud
+                if relative not in ICLOUD_ENTITLEMENTS:
+                    issue(path, "iCloud entitlements are allowed only in the reviewed Runner entitlement files")
+                for key in cloud.keys() - ICLOUD_ALLOWED_ENTITLEMENT_KEYS:
+                    issue(path, f"Unreviewed iCloud entitlement: {key}")
+        elif path.name == "Info.plist":
+            for key in values:
+                if ("icloud" in key.lower() or "ubiquit" in key.lower()) and key not in {
+                    ICLOUD_CONTAINER_INFO_KEY, "NSUbiquitousContainers"
+                }:
+                    configured = True
+                    issue(path, f"Unreviewed iCloud Info.plist configuration: {key}")
+            if ICLOUD_CONTAINER_INFO_KEY in values or "NSUbiquitousContainers" in values:
+                configured = True
+                info_values[relative] = values
+
+    policy = {
+        "source_configured": configured,
+        "transport": "optional Apple iCloud Documents through native FileManager",
+        "bridge_files": sorted(bridge_paths),
+        "source_default_container": ICLOUD_DEFAULT_CONTAINER,
+        "container_info_key": ICLOUD_CONTAINER_INFO_KEY,
+        "container_build_setting": ICLOUD_CONTAINER_SETTING,
+        "container": None,
+        "outgoing_network_entitlement_allowed": False,
+        "runtime_opt_in_and_signed_profile_verified": False,
+    }
+    if not configured:
+        return policy
+
+    source_containers = []
+    for platform, entries in settings.items():
+        for path, number, value in entries:
+            if not ICLOUD_CONTAINER_IDENTIFIER.fullmatch(value):
+                issue(path, "iCloud container build setting must be one explicit, non-wildcard iCloud identifier", number)
+            else:
+                source_containers.append(value)
+    for relative, values in info_values.items():
+        value = values.get(ICLOUD_CONTAINER_INFO_KEY)
+        if not isinstance(value, str) or value not in ICLOUD_CONTAINER_REFERENCES:
+            if isinstance(value, str) and ICLOUD_CONTAINER_IDENTIFIER.fullmatch(value):
+                source_containers.append(value)
+            else:
+                issue(root / relative, "Info.plist must declare the reviewed iCloud container or its build-setting reference")
+    containers = sorted(set(source_containers))
+    if len(containers) != 1:
+        issue(root / "ios/Runner/Info.plist", "iOS/macOS must resolve one identical, explicit iCloud Documents container")
+    container = containers[0] if len(containers) == 1 else None
+    policy["container"] = container
+
+    def expected_container(value):
+        return isinstance(value, str) and (value in ICLOUD_CONTAINER_REFERENCES or value == container)
+
+    for platform in ("ios", "macos"):
+        if not (root / platform).exists():
+            continue
+        bridge = f"{platform}/Runner/GoodGoodStudyICloudBridge.swift"
+        if bridge not in bridge_paths:
+            issue(root / bridge, "Optional iCloud Documents requires the reviewed native bridge on each Apple platform")
+        info = f"{platform}/Runner/Info.plist"
+        values = info_values.get(info, {})
+        configured_container = values.get(ICLOUD_CONTAINER_INFO_KEY)
+        if not expected_container(configured_container):
+            issue(root / info, "Runner Info.plist must select the shared iCloud container")
+        if isinstance(configured_container, str) and configured_container in ICLOUD_CONTAINER_REFERENCES and not settings.get(platform):
+            issue(root / info, "iCloud container build-setting reference has no explicit source default for this platform")
+        public_containers = values.get("NSUbiquitousContainers")
+        if public_containers is not None and (
+            not isinstance(public_containers, dict)
+            or len(public_containers) != 1
+            or not all(expected_container(key) for key in public_containers)
+        ):
+            issue(root / info, "NSUbiquitousContainers may describe only the shared, reviewed container")
+        if isinstance(public_containers, dict) and any(key in ICLOUD_CONTAINER_REFERENCES for key in public_containers) and not settings.get(platform):
+            issue(root / info, "NSUbiquitousContainers has an unresolved container build-setting reference")
+        expected_files = sorted(name for name in ICLOUD_ENTITLEMENTS if name.startswith(platform + "/"))
+        for relative in expected_files:
+            cloud = entitlement_values.get(relative, {})
+            if cloud.get("com.apple.developer.icloud-services") != ["CloudDocuments"]:
+                issue(root / relative, "iCloud services must be exactly CloudDocuments; CloudKit and other services are not allowed")
+            for key in ICLOUD_CONTAINER_KEYS:
+                selected = cloud.get(key)
+                # The bridge checks both declarations in the signed process or
+                # profile before it treats the container as authorized.
+                if not isinstance(selected, list) or len(selected) != 1 or not expected_container(selected[0]):
+                    issue(root / relative, f"{key} must contain only the shared iCloud container")
+                elif selected[0] in ICLOUD_CONTAINER_REFERENCES and not settings.get(platform):
+                    issue(root / relative, "iCloud entitlement has an unresolved container build-setting reference")
+    return policy
 
 
 def main():
@@ -162,10 +343,13 @@ def main():
         issue(plugin_metadata, "Plugin metadata missing; run flutter pub get")
 
     dart_files = list((root / "lib").rglob("*.dart"))
+    native_paths = list(native_files(root))
+    cloud_policy = icloud_policy(root, native_paths, issue)
     registry = {}
-    for path in sorted(set(dart_files + list(native_files(root)))):
+    for path in sorted(set(dart_files + native_paths)):
         content = path.read_text(encoding="utf-8", errors="replace")
-        scanned.append(str(path.relative_to(root)))
+        relative = path.relative_to(root).as_posix()
+        scanned.append(relative)
         if "GeneratedPluginRegistrant" in path.name or "generated_plugin_registrant" in path.name:
             imports = re.findall(r"^import\s+(\w+)", content, flags=re.M)
             imports += re.findall(r"#import\s+<([^/>]+)/", content)
@@ -176,6 +360,11 @@ def main():
         for number, line in enumerate(content.splitlines(), 1):
             if NETWORK_API.search(line) or NETWORK_IMPORT.search(line):
                 issue(path, "Network API or remote-content import in runtime code", number)
+            if path.suffix in RUNTIME_CODE_SUFFIXES:
+                if ICLOUD_OTHER_API.search(line):
+                    issue(path, "CloudKit, cloud key-value stores and other cloud APIs are outside the iCloud Documents policy", number)
+                elif ICLOUD_DOCUMENT_API.search(line) and relative not in ICLOUD_BRIDGES:
+                    issue(path, "iCloud Documents/metadata APIs are allowed only in the two reviewed native bridge files", number)
             if SERVICE_CONFIG.search(line):
                 issue(path, "Official-service identity, telemetry or updater configuration", number)
             if path.name == "Podfile.lock" and DENIED_PLUGIN.search(line):
@@ -189,6 +378,9 @@ def main():
         if path.suffix == ".entitlements":
             try:
                 entitlements = plistlib.loads(path.read_bytes())
+                if not isinstance(entitlements, dict):
+                    issue(path, "Entitlements must be a dictionary")
+                    continue
                 if entitlements.get("com.apple.security.network.client"):
                     issue(path, "Outgoing-network entitlement is enabled")
                 if path.name == "Release.entitlements":
@@ -241,6 +433,7 @@ def main():
         "scope": "static source/configuration/dependency audit; no runtime network capture",
         "passed": not violations,
         "inventory": inventory,
+        "optional_icloud_documents": cloud_policy,
         "files_scanned": scanned,
         "runtime_url_hosts_for_review": endpoints,
         "violations": violations,
@@ -249,8 +442,10 @@ def main():
             "Does not inspect dependency implementation or native binaries for all network code",
             "media_kit/libmpv supports network protocols; callers must accept local files only",
             "Generated registrants and lock entries show inclusion, not all possible runtime behavior",
+            "The iCloud Documents exception is limited to the two native bridges and reviewed container entitlements; it does not permit HTTP, CloudKit, telemetry or another cloud SDK",
+            "Source configuration cannot prove iCloud authorization, the active Apple Account, runtime opt-in, transfer completion or conflict handling",
             "Documents, licenses, tests, tool scripts and build-time download URLs are deliberately outside runtime-source scanning",
-            "Use a Release build and the separate runtime-network procedure before making a no-network claim",
+            "Local-only behavior and optional iCloud behavior need separate Release verification; do not claim no networking while iCloud sync is enabled",
         ],
     }
     if args.report:

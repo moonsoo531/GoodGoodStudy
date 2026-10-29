@@ -1,7 +1,7 @@
 name: offline_player
-description: An offline local media study player derived from Enjoy Player.
+description: Local-first study, quizzes and media with optional iCloud Documents sync.
 publish_to: none
-version: 0.7.2+27
+version: 0.8.0+28
 
 environment:
   sdk: ^3.13.0

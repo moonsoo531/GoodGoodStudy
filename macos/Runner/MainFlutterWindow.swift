@@ -36,6 +36,7 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    ICloudSyncPlugin.register(with: flutterViewController.registrar(forPlugin: "ICloudSyncPlugin"))
     configureLocalFilesChannel(flutterViewController)
     configureWindowInteractions()
 

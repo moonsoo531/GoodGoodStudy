@@ -58,9 +58,9 @@ class NavigationStrings {
     'Listen to your own audio with subtitles.',
   );
   String get resources => text(
-    '资源由你准备，所有资料保存在本机。',
-    '教材はご自身で用意し、データはこの端末に保存されます。',
-    'Bring your own resources. Your materials stay on this device.',
+    '资料默认保存在本机，可在设置中开启 iCloud 同步。',
+    '教材は通常この端末に保存されます。設定で iCloud 同期を有効にできます。',
+    'Materials are stored on this device by default. You can enable iCloud sync in settings.',
   );
   String get switching => text('正在切换…', '切り替え中…', 'Switching…');
   String get loading => text('正在打开…', '開いています…', 'Opening…');

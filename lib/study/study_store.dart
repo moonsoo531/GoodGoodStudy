@@ -26,12 +26,40 @@ class StudyResumeLocation {
   final String lessonId;
 }
 
+class StudySyncSnapshot {
+  StudySyncSnapshot({
+    required List<InstalledStudyPackage> packages,
+    required Map<String, Map<String, dynamic>> progress,
+  }) : packages = List.unmodifiable(packages),
+       progress = Map.unmodifiable({
+         for (final entry in progress.entries)
+           entry.key: _freezeMap(entry.value),
+       });
+
+  final List<InstalledStudyPackage> packages;
+  final Map<String, Map<String, dynamic>> progress;
+
+  static Map<String, dynamic> _freezeMap(Map<String, dynamic> value) =>
+      Map<String, dynamic>.unmodifiable({
+        for (final entry in value.entries) entry.key: _freeze(entry.value),
+      });
+
+  static Object? _freeze(Object? value) {
+    if (value is Map<String, dynamic>) return _freezeMap(value);
+    if (value is List) return List<Object?>.unmodifiable(value.map(_freeze));
+    return value;
+  }
+}
+
 /// Imports only prepared data, without conversion or network access. Immutable
 /// revision directories are committed through a small atomic current pointer.
 /// Learning progress lives outside those directories and survives upgrades.
 class StudyStore {
-  StudyStore({this.root});
+  StudyStore({this.root, this.onCommitted});
   final Directory? root;
+
+  /// Queue synchronization work only; local commits never wait for the cloud.
+  final void Function()? onCommitted;
   Directory? _root;
   Future<void> _pending = Future<void>.value();
   final List<String> _libraryWarnings = [];
@@ -57,6 +85,8 @@ class StudyStore {
     _pending = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return next;
   }
+
+  Future<void> flush() => _pending;
 
   Future<InstalledStudyPackage> importZip(File zip) => _serial(() async {
     if (!zip.isAbsolute || !await zip.exists()) {
@@ -226,7 +256,9 @@ class StudyStore {
     }
   });
 
-  Future<List<InstalledStudyPackage>> packages() => _serial(() async {
+  Future<List<InstalledStudyPackage>> packages() => _serial(_packages);
+
+  Future<List<InstalledStudyPackage>> _packages() async {
     _libraryWarnings.clear();
     final root = await _location();
     final folder = Directory('${root.path}/packages');
@@ -245,6 +277,19 @@ class StudyStore {
     }
     result.sort((a, b) => a.package.title.compareTo(b.package.title));
     return result;
+  }
+
+  /// Read committed content and its progress through the same local write queue.
+  /// Resume locations remain device-specific and are not included.
+  Future<StudySyncSnapshot> captureSyncSnapshot() => _serial(() async {
+    final installed = await _packages();
+    final progress = <String, Map<String, dynamic>>{};
+    for (final item in installed) {
+      progress[item.package.packageId] = await _loadProgress(
+        item.package.packageId,
+      );
+    }
+    return StudySyncSnapshot(packages: installed, progress: progress);
   });
 
   Future<InstalledStudyPackage?> _current(Directory base) async {
@@ -462,6 +507,157 @@ class StudyStore {
     });
   }
 
+  /// Apply only while the caller has suspended the corresponding learning page.
+  /// Compare the entire document so a newer local note cannot be overwritten.
+  Future<bool> applySyncedProgress(
+    String packageId, {
+    required Map<String, dynamic> expectedLocal,
+    required Map<String, dynamic> progress,
+  }) {
+    if (!_packageIdPattern.hasMatch(packageId)) {
+      throw ArgumentError.value(packageId, 'packageId');
+    }
+    // Capture caller-owned maps before waiting for earlier local writes.
+    final expected = _canonical(expectedLocal);
+    _validateSyncJson(progress);
+    final snapshot = jsonEncode(progress);
+    if (utf8.encode(snapshot).length > maxJsonBytes) {
+      throw const FormatException('同步学习进度超过 8 MB，未覆盖本机记录。');
+    }
+    return _serial(() async {
+      final local = await _loadProgress(packageId);
+      if (_canonical(local) != expected) return false;
+      final decoded = _jsonMap(snapshot, '同步学习进度');
+      _validateSyncedProgress(decoded);
+      await _atomicText(await _stateFile(packageId, 'progress'), snapshot);
+      await _updateSyncedResume(packageId, decoded);
+      return true;
+    });
+  }
+
+  Future<void> _updateSyncedResume(
+    String packageId,
+    Map<String, dynamic> progress,
+  ) async {
+    final lessonId = progress['lesson_id'];
+    if (lessonId is! String || !_validLessonId(lessonId)) return;
+    final root = await _location();
+    final file = File('${root.path}/state/learning-resume.json');
+    Map<String, dynamic> resume;
+    try {
+      // Do not create a pointer or migrate another package's local history.
+      if (!await file.exists() || await file.length() > maxJsonBytes) return;
+      resume = _jsonMap(utf8.decode(await file.readAsBytes()), '上次学习位置');
+      final previousLesson = resume['lesson_id'];
+      if (resume['schema_version'] != 1 ||
+          resume['selection_required'] == true ||
+          resume['package_id'] != packageId ||
+          previousLesson is! String ||
+          !_validLessonId(previousLesson) ||
+          previousLesson == lessonId) {
+        return;
+      }
+      final base = Directory('${root.path}/packages/$packageId');
+      if (!await base.exists()) return;
+      final installed = await _current(base);
+      if (installed == null ||
+          !installed.package.lessons.any((lesson) => lesson.id == lessonId)) {
+        return;
+      }
+    } on FormatException {
+      // Preserve malformed pointers for the existing recovery path.
+      return;
+    } on FileSystemException {
+      return;
+    }
+    await _atomicJson(file, {...resume, 'lesson_id': lessonId});
+  }
+
+  void _validateSyncedProgress(Map<String, dynamic> progress) {
+    void invalid(String field) {
+      throw FormatException('同步学习进度的 $field 无效，未覆盖本机记录。');
+    }
+
+    for (final key in ['lesson_id', 'audio_segment_id']) {
+      if (!progress.containsKey(key) || progress[key] == null) continue;
+      final value = progress[key];
+      if (value is! String || !_validLessonId(value)) invalid(key);
+    }
+    for (final key in ['show_translation', 'show_readings']) {
+      if (progress.containsKey(key) && progress[key] is! bool) invalid(key);
+    }
+    if (progress.containsKey('mode') &&
+        !['read', 'keywords', 'dictation'].contains(progress['mode'])) {
+      invalid('mode');
+    }
+    if (progress.containsKey('playback_scope') &&
+        !['passage', 'sentence'].contains(progress['playback_scope'])) {
+      invalid('playback_scope');
+    }
+    if (progress.containsKey('rate')) {
+      final value = progress['rate'];
+      if (value is! num || ![0.5, 0.75, 1.0, 1.25, 1.5, 2.0].contains(value)) {
+        invalid('rate');
+      }
+    }
+    if (progress.containsKey('repeat_count')) {
+      final value = progress['repeat_count'];
+      if (value is! int || ![0, 1, 2, 3, 5, 10].contains(value)) {
+        invalid('repeat_count');
+      }
+    }
+    if (progress.containsKey('entry_attribute_defaults_version')) {
+      final value = progress['entry_attribute_defaults_version'];
+      if (value is! int || value < 0) {
+        invalid('entry_attribute_defaults_version');
+      }
+    }
+    if (progress.containsKey('entry_notes')) {
+      final notes = progress['entry_notes'];
+      if (notes is! Map<String, dynamic> ||
+          notes.values.any((value) => value is! String)) {
+        invalid('entry_notes');
+      }
+    }
+    if (progress.containsKey('entry_attributes')) {
+      final attributes = progress['entry_attributes'];
+      if (attributes is! Map<String, dynamic> ||
+          attributes.values.any(
+            (value) =>
+                value is! Map<String, dynamic> ||
+                value.values.any((attribute) => attribute is! String),
+          )) {
+        invalid('entry_attributes');
+      }
+    }
+  }
+
+  // Preserve unknown fields for newer clients, but accept only bounded JSON
+  // values rather than arbitrary objects with custom encoders or cyclic maps.
+  void _validateSyncJson(Object? value, [int depth = 0]) {
+    if (depth > 64) {
+      throw const FormatException('同步学习进度的嵌套层级过深。');
+    }
+    if (value == null || value is String || value is bool) return;
+    if (value is num && value.isFinite) return;
+    if (value is Map) {
+      for (final entry in value.entries) {
+        if (entry.key is! String) {
+          throw const FormatException('同步学习进度的字段名必须是字符串。');
+        }
+        _validateSyncJson(entry.value, depth + 1);
+      }
+      return;
+    }
+    if (value is List) {
+      for (final item in value) {
+        _validateSyncJson(item, depth + 1);
+      }
+      return;
+    }
+    throw const FormatException('同步学习进度包含无效的 JSON 值。');
+  }
+
   Future<File> _stateFile(String id, String kind) async {
     if (!_packageIdPattern.hasMatch(id)) {
       throw ArgumentError.value(id, 'packageId');
@@ -480,8 +676,17 @@ class StudyStore {
     try {
       await temporary.writeAsString(text, flush: true);
       await temporary.rename(file.path);
+      _notifyCommitted();
     } finally {
       if (await temporary.exists()) await temporary.delete();
+    }
+  }
+
+  void _notifyCommitted() {
+    try {
+      onCommitted?.call();
+    } on Object {
+      // A synchronization scheduling failure must not undo a local commit.
     }
   }
 

@@ -26,9 +26,12 @@ import 'playback/media_metadata.dart';
 import 'playback/media_tracks.dart';
 import 'playback/player_time.dart';
 import 'quiz/quiz_page.dart';
+import 'quiz/quiz_store.dart';
 import 'subtitles/subtitles.dart';
 import 'subtitles/subtitle_visibility.dart';
 import 'study/study_page.dart';
+import 'study/study_store.dart';
+import 'sync/resource_sync_controller.dart';
 import 'theme/app_theme.dart';
 import 'widgets/stable_slider.dart';
 import 'widgets/player_subtitles.dart';
@@ -40,7 +43,23 @@ Future<void> main() async {
   StableSemanticsBinding.ensureInitialized();
   final themeController = AppThemeController();
   final languageController = AppLanguageController();
-  final navigationController = AppNavigationController();
+  late final ResourceSyncController syncController;
+  final navigationController = AppNavigationController(
+    beforeEnter: () => syncController.applyPending(),
+  );
+  final studyStore = StudyStore(
+    onCommitted: () => syncController.localChanged(),
+  );
+  final quizStore = QuizStore(onCommitted: () => syncController.localChanged());
+  syncController = ResourceSyncController(
+    study: studyStore,
+    quiz: quizStore,
+    canApplyRemote: () =>
+        !navigationController.isModuleMounted ||
+        navigationController.section == AppSection.home,
+  );
+  await syncController.initialize();
+  navigationController.addListener(syncController.navigationChanged);
   await themeController.load();
   await languageController.load();
   await navigationController.load();
@@ -50,6 +69,9 @@ Future<void> main() async {
       themeController: themeController,
       languageController: languageController,
       navigationController: navigationController,
+      studyStore: studyStore,
+      quizStore: quizStore,
+      syncController: syncController,
     ),
   );
 }
@@ -60,35 +82,46 @@ class OfflinePlayerApp extends StatelessWidget {
     required this.themeController,
     required this.languageController,
     required this.navigationController,
+    required this.studyStore,
+    required this.quizStore,
+    required this.syncController,
   });
   final AppThemeController themeController;
   final AppLanguageController languageController;
   final AppNavigationController navigationController;
+  final StudyStore studyStore;
+  final QuizStore quizStore;
+  final ResourceSyncController syncController;
 
   @override
-  Widget build(BuildContext context) => AppThemeScope(
-    controller: themeController,
-    child: AppLanguageScope(
-      controller: languageController,
-      child: Builder(
-        builder: (context) => MaterialApp(
-          title: 'GoodGoodStudy',
-          locale: AppLanguageScope.of(context).locale,
-          supportedLocales: AppLocalizations.supportedLocales,
-          localizationsDelegates: appLocalizationDelegates,
-          debugShowCheckedModeBanner: false,
-          theme: buildAppTheme(Brightness.light),
-          darkTheme: buildAppTheme(Brightness.dark),
-          themeMode: AppThemeScope.of(context).themeMode,
-          home: GoodGoodStudyShell(
-            controller: navigationController,
-            phonePlayback: Platform.isIOS,
-            builders: {
-              AppSection.study: (_) => const StudyPage(),
-              AppSection.quiz: (_) => const QuizPage(restoreLastLocation: true),
-              AppSection.player: (_) =>
-                  Platform.isIOS ? const PhonePlayerPage() : const PlayerPage(),
-            },
+  Widget build(BuildContext context) => ResourceSyncScope(
+    controller: syncController,
+    child: AppThemeScope(
+      controller: themeController,
+      child: AppLanguageScope(
+        controller: languageController,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            title: 'GoodGoodStudy',
+            locale: AppLanguageScope.of(context).locale,
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: appLocalizationDelegates,
+            debugShowCheckedModeBanner: false,
+            theme: buildAppTheme(Brightness.light),
+            darkTheme: buildAppTheme(Brightness.dark),
+            themeMode: AppThemeScope.of(context).themeMode,
+            home: GoodGoodStudyShell(
+              controller: navigationController,
+              phonePlayback: Platform.isIOS,
+              builders: {
+                AppSection.study: (_) => StudyPage(store: studyStore),
+                AppSection.quiz: (_) =>
+                    QuizPage(store: quizStore, restoreLastLocation: true),
+                AppSection.player: (_) => Platform.isIOS
+                    ? const PhonePlayerPage()
+                    : const PlayerPage(),
+              },
+            ),
           ),
         ),
       ),

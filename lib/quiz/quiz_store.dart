@@ -87,8 +87,11 @@ class QuizNavigationLocation {
 /// are derived from those records, so a crash cannot apply a score twice or
 /// leave the mistake list out of sync with its corresponding result.
 class QuizStore {
-  QuizStore({this.root});
+  QuizStore({this.root, this.onCommitted});
   final Directory? root;
+
+  /// Queue synchronization work only; local commits never wait for the cloud.
+  final void Function()? onCommitted;
   Directory? _root;
   Future<void> _pending = Future<void>.value();
   final List<String> _libraryWarnings = [];
@@ -761,8 +764,17 @@ class QuizStore {
     try {
       await temporary.writeAsString(text, flush: true);
       await temporary.rename(file.path);
+      _notifyCommitted();
     } finally {
       if (await temporary.exists()) await temporary.delete();
+    }
+  }
+
+  void _notifyCommitted() {
+    try {
+      onCommitted?.call();
+    } on Object {
+      // A synchronization scheduling failure must not undo a local commit.
     }
   }
 

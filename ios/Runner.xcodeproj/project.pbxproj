@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C10D510A0000000000000001 /* GoodGoodStudyICloudBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10D510A0000000000000002 /* GoodGoodStudyICloudBridge.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3A9A230AD77ABD98B990EC07 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1758A738E8DC563F1CFF8013 /* Pods_Runner.framework */; };
@@ -47,6 +48,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C10D510A0000000000000003 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		C10D510A0000000000000002 /* GoodGoodStudyICloudBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoodGoodStudyICloudBridge.swift; sourceTree = "<group>"; };
 		00C070D8670C97299F138F1B /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		074CCF40B8B53B552BD81931 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
@@ -172,6 +175,8 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				C10D510A0000000000000002 /* GoodGoodStudyICloudBridge.swift */,
+				C10D510A0000000000000003 /* Runner.entitlements */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				A04211412EF0100100000002 /* IOSAudioRules.swift */,
 				A04211412EF0100100000004 /* IOSAudioPlugin.swift */,
@@ -243,6 +248,9 @@
 						TestTargetID = 97C146ED1CF9000F007C117D;
 					};
 					97C146ED1CF9000F007C117D = {
+						SystemCapabilities = {
+							com.apple.iCloud = { enabled = 1; };
+						};
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
 					};
@@ -400,6 +408,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				C10D510A0000000000000001 /* GoodGoodStudyICloudBridge.swift in Sources */,
 				A04211412EF0100100000001 /* IOSAudioRules.swift in Sources */,
 				A04211412EF0100100000003 /* IOSAudioPlugin.swift in Sources */,
 				A04211412EF0100100000005 /* IOSAudioDiagnostics.swift in Sources */,
@@ -500,6 +509,8 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				GOODGOODSTUDY_ICLOUD_CONTAINER = iCloud.dev.learnjapanese.offlinePlayer;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -684,6 +695,8 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				GOODGOODSTUDY_ICLOUD_CONTAINER = iCloud.dev.learnjapanese.offlinePlayer;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -706,6 +719,8 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				GOODGOODSTUDY_ICLOUD_CONTAINER = iCloud.dev.learnjapanese.offlinePlayer;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
