@@ -16,6 +16,7 @@ import 'library/playlist_import.dart';
 import 'library/playlist_mode.dart';
 import 'l10n/app_language.dart';
 import 'l10n/app_localizations.dart';
+import 'navigation/app_home_back_button.dart';
 import 'navigation/app_navigation.dart';
 import 'navigation/app_section_menu_button.dart';
 import 'navigation/good_good_study_shell.dart';
@@ -1606,6 +1607,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
         appBar: _fullScreen
             ? null
             : AppBar(
+                leading: _navigation == null ? null : const AppHomeBackButton(),
                 title: Row(
                   children: [
                     Icon(Icons.headphones_rounded, size: 23),

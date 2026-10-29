@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
+import '../navigation/app_home_back_button.dart';
 import '../navigation/app_navigation.dart';
 import '../navigation/app_section_menu_button.dart';
 
@@ -541,7 +542,12 @@ class _StudyPageState extends State<StudyPage> {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(context.tr('基础知识学习')),
+              leading: _navigation == null ? null : const AppHomeBackButton(),
+              title: Text(
+                context.tr('基础知识学习'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               actions: [
                 const AppSectionMenuButton(),
                 const ThemeMenuButton(),

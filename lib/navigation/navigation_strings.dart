@@ -13,6 +13,7 @@ class NavigationStrings {
       ? en
       : zh;
   String get home => text('首页', 'ホーム', 'Home');
+  String get backToHome => text('返回首页', 'ホームに戻る', 'Back to home');
   String get study => text('学习', '学習', 'Study');
   String get quiz => text('测试', 'テスト', 'Quiz');
   String get player => text('本地播放', 'ローカル再生', 'Local playback');

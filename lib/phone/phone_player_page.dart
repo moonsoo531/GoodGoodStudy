@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../navigation/app_home_back_button.dart';
 import '../navigation/app_navigation.dart';
 import '../navigation/app_section_menu_button.dart';
 
@@ -410,6 +411,7 @@ class _PhonePlayerPageState extends State<PhonePlayerPage>
     final error = _message ?? _audio.error;
     return Scaffold(
       appBar: AppBar(
+        leading: _navigation == null ? null : const AppHomeBackButton(),
         title: Text(
           context.tr('本地播放'),
           maxLines: 1,
