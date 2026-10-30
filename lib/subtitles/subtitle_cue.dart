@@ -1,4 +1,5 @@
-final class SubtitleCue {
+/// One subtitle's unchanged text and media-time interval.
+class SubtitleCue {
   const SubtitleCue({
     required this.index,
     required this.start,
@@ -15,12 +16,11 @@ final class SubtitleCue {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
       other is SubtitleCue &&
-          index == other.index &&
-          start == other.start &&
-          end == other.end &&
-          text == other.text;
+      index == other.index &&
+      start == other.start &&
+      end == other.end &&
+      text == other.text;
 
   @override
   int get hashCode => Object.hash(index, start, end, text);

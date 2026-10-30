@@ -1,7 +1,7 @@
 name: offline_player
 description: Local-first study, quizzes and media with optional iCloud Documents sync.
 publish_to: none
-version: 0.8.2+30
+version: 0.9.0+31
 
 environment:
   sdk: ^3.13.0
@@ -28,3 +28,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/goodgoodstudy-icon.png
+    - assets/licenses/GoodGoodStudy-MIT.txt

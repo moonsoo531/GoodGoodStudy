@@ -1,6 +1,6 @@
 # App Store 隐私与 SDK 审查记录
 
-审查日期：2026-10-30。对象：GoodGoodStudy 0.8.2+30 的公开源码、锁定依赖和本地已解析的 SDK 来源，并只读检查同版本 iOS 本地构建。本文不是 App Store Connect 中已经提交的隐私回答，也不代表最终发行 archive 已验证。
+更新日期：2026-10-30。初始 API／依赖盘点基于 GoodGoodStudy 0.8.2+30；文末记录同日 0.9.0+31 的实际签名构建与资源复核。iOS SDK 的已确认声明缺项已由本项目受控构建补丁关闭。本文不是已提交的商店隐私回答；Xcode Privacy Report、其余 SDK 的最终适用性和 Apple 服务审核仍需单独核实。
 
 ## 已落地的材料
 
@@ -20,7 +20,7 @@
 
 依据：[Apple API 类别](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)、[批准的理由](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons)。
 
-## 当前 iOS 依赖清单
+## iOS 依赖来源盘点与当前状态
 
 以下是已解析来源的静态盘点。依赖存在、来源有 manifest、manifest 最终装入发行 bundle，是三个需要分别核对的事实。
 
@@ -28,7 +28,7 @@
 |---|---|---|---|
 | Flutter / Dart runtime | Flutter 3.47.7；已检查缓存的 iOS Release engine manifest | 无跟踪、无数据类别；FileTimestamp `0A2A.1` / `C617.1`，SystemBootTime `35F9.1` | 最终 Flutter.framework 保留供应方原始文件，不能复制供应方 wrapper 理由到 app 以替代它 |
 | file_picker → file_picker_darwin | 12.3.0 → 1.2.0 | 无跟踪、无数据类别；Package.swift `.process` 与 podspec privacy resource bundle 均包含 manifest | 实际采用 SPM 或 Pods 的那条路径正确打包；供应方文件有效 |
-| package_info_plus | 10.2.2，由播放依赖引入；现有 0.8.2+30 的 Runner 已链接该类和方法 | iOS manifest 的收集和 API 类别为空、跟踪为 false；SPM / Pods 均声明资源。但 `FPPPackageInfoPlusPlugin.m:getUpdateDate` 直接调用 `fileModificationDate`，还有安装目录创建日期读取；现有包中的该 SDK manifest 也为空 | **合法元数据读取与 SDK 理由声明存在已确认差异**。采用供应方修复或受控、可重现的本地 SDK manifest 补丁，或经审查移除不需要的 iOS SDK 路径；不能用 app 理由掩盖 SDK 缺项 |
+| package_info_plus | 10.2.2，由播放依赖引入；初始 0.8.2+30 的 Runner 已确认链接该类和方法 | 供应方 iOS manifest 的 API 数组为空，而实现读取本应用安装／更新时间；SPM / Pods 均声明资源 | **本项目构建缺口已关闭**：受控补丁将 FileTimestamp/C617.1 加入 SDK 自己的资源声明，0.9.0+31 iOS 开发 IPA 中哈希正确且 strict/deep 签名通过。未把 app 理由作为 SDK 替代，也未声称供应方发布修复或 Apple 已接受 |
 | wakelock_plus | 1.8.0，由播放依赖引入 | iOS manifest 的收集和 API 类别为空、跟踪为 false；SPM / Pods 均声明资源 | 最终 bundle 归属与 SDK 签名要求 |
 | path_provider → path_provider_foundation | 2.1.6 → 2.6.0；foundation 实现为 Dart plugin + Objective-C FFI，生成元数据 `native_build: false` | 该版本包内未见 `PrivacyInfo.xcprivacy`；已读的目录 API 实现不含 UserDefaults、启动时间或直接文件时间戳读取 | Apple 列表含 path_provider 家族；不能只因 native_build=false 宣称豁免。需要确认此版本的实际归并方式、供应方解释和最终提交验证；若要求 SDK manifest，应获取正确供应方材料或选择已解决该问题的版本，不伪造供应方声明 |
 | media_kit_video | 2.0.1，iOS Pod / native plugin | 该包 iOS 来源未见 manifest；当前检查未发现其直接使用 required reason API 的证据 | 确认最终是否链接，以及其静态依赖和 API；不因包名含 video 就误认成 Apple's video_player_avfoundation |
@@ -37,7 +37,7 @@
 
 Apple 的清单明确包含 Flutter、file_picker、package_info_plus、path_provider/path_provider_ios、wakelock，并覆盖所列 SDK 的版本和重新打包形式；二进制依赖还有签名要求。名称和架构变化需要具体核实，不能通过 app 的空 manifest 遮盖 SDK 缺项。[Apple 第三方 SDK 要求](https://developer.apple.com/support/third-party-SDK-requirements/)
 
-现有公开 `ios/Podfile.lock` 只列 Flutter 和 media_kit_video，而生成插件清单包含更多组件；SPM、Dart/FFI 和 Pods 并行时，仅看 Podfile.lock 不足以还原最终包。本次没有构建或取得一个新的发行 archive，不能把上表标记为“最终包全部通过”。
+现有公开 `ios/Podfile.lock` 只列 Flutter 和 media_kit_video，而生成插件清单包含更多组件；SPM、Dart/FFI 和 Pods 并行时，仅看 Podfile.lock 不足以还原最终包。最初的源码盘点与文末实际签名包检查分别记录；已验证某个资源和签名，不等于上表全部 SDK 适用性或 Apple 服务验证通过。
 
 package_info_plus 的差异是声明完整性问题，不是非法读取或跟踪行为：其 iOS `getAll` 路径为应用信息计算本应用的安装/更新时间。依赖链是 `media_kit_video 2.0.1 → wakelock_plus 1.8.0 → package_info_plus 10.2.2`，生成 SPM 项目也明确链接该 product。
 
@@ -47,7 +47,7 @@ package_info_plus 的差异是声明完整性问题，不是非法读取或跟�
 
 若采用本地修复，应把 SDK 自身 manifest 的准确理由变更作为有来源、版本和哈希的受控补丁记录，在保留其 BSD 许可的前提下重建并检查对应 resource bundle；不要手改不可复现的缓存，也不要宣称供应方已经发布修复。
 
-原始 SDK 的声明缺项已通过本项目的受控构建资源补丁修复：`tool/apply_package_info_privacy_patch.py` 仅修改 Xcode 正在构建的该 SDK 纯资源 bundle，并在 Runner 最终 CodeSign 前补全 `FileTimestamp/C617.1`。锁版本、上游原始/补丁后哈希、路径及资源归属均受检查；专项测试 12 项通过，包括标准 Archive alias 与越界 alias 的区分。接入顺序、来源和最终签名验证要求见[补丁记录](app-store-package-info-privacy-patch.md)。这是 SDK 自己的声明修复，app 自身的 manifest 不是替代品；最终 Archive 的资源哈希、隐私报告和签名由发行构建另行记录。
+原始 SDK 的声明缺项已通过本项目的受控构建资源补丁修复：`tool/apply_package_info_privacy_patch.py` 仅修改 Xcode 正在构建的该 SDK 纯资源 bundle，并在 Runner 最终 CodeSign 前补全 `FileTimestamp/C617.1`。锁版本、上游原始/补丁后哈希、路径及资源归属均受检查；专项测试 12 项通过，包括标准 Archive alias 与越界 alias 的区分。接入顺序、来源和最终签名验证要求见[补丁记录](app-store-package-info-privacy-patch.md)。这是 SDK 自己的声明修复，app 自身的 manifest 不是替代品。0.8.2 归档和 0.9.0 开发 IPA 的资源哈希／签名结果见文末；Xcode Privacy Report 和 Apple 服务结果不由这项本地修复替代。
 
 ## 商店隐私回答的依据与边界
 
@@ -59,15 +59,23 @@ package_info_plus 的差异是声明完整性问题，不是非法读取或跟�
 
 ## 进入发行前的验收点
 
-1. 将应用 manifest 加入 Runner Resources，并在最终 archive 的应用 bundle 中确认有效文件；仅创建源文件不代表完成资源绑定。
+1. 应用 manifest 的 Runner Resources 绑定及实际应用 bundle 文件已在本地签名包中核实；后续更换发行配置时仍需检查实际包，而不能只看源文件。
 2. 从最终 archive 生成 Xcode Privacy Report，核对每个 SDK manifest、API 理由和二进制签名的归属，确认 package_info_plus 的本项目受控补丁已进入正确资源 bundle 且被后续 Runner 签名封存，并关闭 path_provider/FFI 和媒体组件待核实项。不要通过删除 SDK 声明或扩大无依据理由取得表面通过。
 3. 对照最终功能确认隐私政策、应用内入口和商店回答一致；匿名访问实际发布的政策链接，验证三语可读。
 4. 政策中没有编造邮箱、承诺自动清除云端或声称已获得商店批准。若独立发行者提供不同支持渠道或更改数据用途，先更新政策再发行。
 
-本轮只准备源码与文档；没有接受 Apple 协议、启用网站、提交隐私回答、上传 TestFlight 或提交审核。
+本地源码、构建和签名验收不等于商店隐私回答或审核；本轮 0.9.0 未上传 TestFlight 或提交 App Store 审核。
 
 ## 0.8.2 本地归档验证补充
 
 本项目已完成 iOS Release Archive 与 development/debugging IPA 的本地导出，未上传 App Store Connect。Runner 根目录的 app manifest 和 SDK 自己的 `package_info_plus_package_info_plus.bundle/PrivacyInfo.xcprivacy` 均实际存在；后者已由[受控资源补丁](app-store-package-info-privacy-patch.md)补入 FileTimestamp/C617.1，SHA-256 为 `37f23fa7aabe84ee3c9a1f162c2c036612e5142aa6e3ce1dfc711161572d3131`。归档 App 与重新导出的 App 的 strict/deep 签名检查均通过，供应方缓存未改。此项源码与声明的缺口已在本项目的构建路径关闭。
 
 包内还核实了 Flutter、file_picker_darwin 与 wakelock_plus 的原资源声明。完整私有库存保留在本地验收材料中，不包含用户学习资料。这是本地实际包和签名验证，不等于 App Store 服务验证或 Xcode Organizer Privacy Report；path_provider/FFI 的归并适用性及最终发行配置仍按上表继续核实。
+
+## 0.9.0+31 签名包与更新复核
+
+iOS development IPA 和 macOS 真实签名 release 均已构建，strict/deep 签名检查通过，保留原 bundle／签名身份及 iCloud entitlements。iOS 包中 SDK 自身 `package_info_plus` manifest 的 SHA-256 为 `37f23fa7aabe84ee3c9a1f162c2c036612e5142aa6e3ce1dfc711161572d3131`，确认受控补丁进入正确资源 bundle。macOS 保留其平台原 manifest，没有套用 iOS 补丁。两端项目 MIT 资源均与根 LICENSE 精确一致。
+
+iPhone 已原位更新并实读版本为 0.9.0 (31)，没有卸载或数据重置；iPad simulator 的 Apple AVPlayer 与应用内 MIT 告知已验证。公开与私有构建副本的 73 项输入（含 69 个 Dart 文件及 manifest／license）哈希一致，制品哈希和详细验证边界见[独立替换记录](independent-replacement.md#native-and-package-verification)。设备、签名身份、原始诊断和媒体 fixture 保留在私有验收资料，不导出到公开文档。
+
+这些结果没有关闭真实手机交互、实际两设备 iCloud 往返、path_provider／FFI 的 Apple 适用性或 Organizer Privacy Report 待核事项；本轮没有上传 TestFlight，也没有获得 App Store 审核结果。

@@ -84,8 +84,8 @@ python3 tool/audit_public_export.py
 
 ## 许可证与来源
 
-本项目以 **GNU Affero General Public License v3** 发布。请阅读 [LICENSE](LICENSE) 和 [来源归属](docs/upstream-provenance.md)。Enjoy Player 本地播放与字幕逻辑的上游归属继续保留。软件的开源许可不授予第三方教材、题库或音频的再分发权。
+从 **0.9.0+31** 起，当前项目自有代码与独立重写的播放／字幕实现采用 **MIT License**，见 [LICENSE](LICENSE) 和[独立替换记录](docs/independent-replacement.md)。已识别的 Enjoy Player 派生实现已整段替换；来源过程与复核范围见[来源记录](docs/upstream-provenance.md)。过程记录不构成法律保证。本轮已通过 187 项针对性用例、22 项真实原生播放检查及完整静态分析；签名构建、手机原位更新与仍未验证的项目见独立替换记录。
 
-Flutter、Dart 包及原生播放组件分别适用其许可证。来源与随附许可原文见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+**0.8.2 及以前的历史版本**（包括提交 `5fc65d6`）仍保留当时的 AGPL v3 许可与 Enjoy Player 归属，[原许可文本](licenses/Enjoy-Player-AGPL-3.0.txt)继续保留；本次没有替第三方改授许可。Flutter、Dart 包及原生播放组件分别适用其许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。软件许可不授予教材、题库、音视频或用户导入资料的使用和再分发权。
 
-隐私说明见[三语隐私政策](docs/privacy-policy.md)。商店发行准备见[许可审查](docs/licenses-release-review.md)、[隐私与 SDK 审查](docs/app-store-privacy-audit.md)和[三语商店资料草稿](docs/app-store-metadata.md)；这些材料不代表已经获得发行例外、完成 TestFlight 或通过 App Store 审核。
+隐私说明见[三语隐私政策](docs/privacy-policy.md)。商店发行准备见[许可审查](docs/licenses-release-review.md)、[隐私与 SDK 审查](docs/app-store-privacy-audit.md)和[三语商店资料草稿](docs/app-store-metadata.md)。macOS 原生媒体库、SDK 隐私声明和最终 App Store 审核仍需分别核对；当前源码许可选择不代表完成 TestFlight 或通过商店审核。

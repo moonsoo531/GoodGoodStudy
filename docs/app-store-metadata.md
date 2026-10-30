@@ -12,7 +12,7 @@ Prepared for the iOS edition, 2026-10-30. This is a reviewable draft, not a reco
 - Privacy policy URL: https://github.com/moonsoo531/GoodGoodStudy/blob/main/docs/privacy-policy.md
 - Source: https://github.com/moonsoo531/GoodGoodStudy
 - Pricing, territories, age/content ratings, copyright owner, review contact, EU trader status and export-compliance declarations require the publisher's accurate information. Do not invent these values or copy information from unrelated apps in the account.
-- The source-derived AGPL distribution question in the release review must be closed before uploading/distributing an App Store or TestFlight binary. This document grants no license exception.
+- The identified AGPL-derived source was independently replaced for 0.9.0+31; the current project-owned/replacement code uses MIT. Historical releases retain AGPL, and third-party terms remain separate. The [replacement record](independent-replacement.md) records completed integration/native checks, signed local packages and an in-place iPhone update. Interactive physical-phone use, a real two-device iCloud round trip and remaining native-library/SDK/store checks remain unverified; see the [license review](licenses-release-review.md). This document grants no third-party license exception or store approval.
 
 The app requires no app account or developer-hosted login. iCloud is optional and off by default. iOS local playback supports audio; do not advertise iOS video playback. No textbooks, question banks, recordings or videos are included in the production bundle.
 

@@ -1,43 +1,32 @@
 # App Store 发行许可审查
 
-审查日期：2026-10-30。适用源码：本轮 GoodGoodStudy 0.8.2+30。状态：**当前含上游 AGPL 派生代码的 App Store 发行路径尚未确认，作为外部分发门槛保留；其他准备工作可继续。** 本文不是新增许可，也不是权利人授权或法律意见书。
+更新日期：2026-10-30。适用当前源码：GoodGoodStudy **0.9.0+31**。项目所有者已选择 **MIT**；已识别的 Enjoy Player 派生实现已通过独立替换路线处理，当前项目自有代码与独立实现采用 MIT。历史版本及第三方组件继续适用各自许可。已完成 187 项针对性用例、完整静态分析及 22/22 真实原生播放检查；签名构建和手机原位更新亦已核实。结果、制品与源码哈希见[独立替换记录](independent-replacement.md)。真实手机交互、两端 iCloud 往返及商店处理仍未验证；本文不代表法律保证或 Apple 批准。
 
-## 已确认事实
+## 当前源码与历史范围
 
-- 项目保留 Enjoy Player commit `dfeae6cf09cbd9f22c2cf7cea1bf01e32b0c6fff` 的本地播放/字幕派生代码，具体文件见[来源归属](upstream-provenance.md)。iOS 使用 Apple AVPlayer，并不会自动消除其余派生代码的许可问题。
-- 项目 `LICENSE` 与 `licenses/Enjoy-Player-AGPL-3.0.txt` 字节相同，SHA-256 为 `295bb876726c108705923d975c988e74ccf9557a2fe581fc79f576bb76a26208`。当前保留材料没有 App Store 专用例外或替代许可的记录。
-- [AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) §10 不允许向下游增加限制；§6 的二进制分发条件和 §7 的额外许可需要按实际发行方式处理。公开仓库、免费定价或关闭云同步，均不单独完成发行许可审查。
-- [Apple 的标准 EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)包含使用及再分发限制，同时也有针对开源组件的部分保留。Apple 允许[自定义 EULA](https://developer.apple.com/help/app-store-connect/manage-app-information/provide-a-custom-license-agreement)，但仍有适用最低条款和分发条件；填写自定义文本本身不能证明全部兼容。
-- [Apple Developer Program License Agreement](https://developer.apple.com/support/terms/apple-developer-program-license-agreement/)要求遵守 FOSS 许可；其项目要求也适用于 TestFlight 等渠道。因此不能把 TestFlight 当作绕过许可的渠道。
+- 六个旧播放／字幕文件已完整替换，包括旧文档中记录过 `VttParser` 行为参考的 WebVTT 文件；timeline 兼容入口只导出新 lookup，新增解析与索引支持文件。旧来源与具体范围见[来源记录](upstream-provenance.md)。
+- 新作者根据公开接口／行为合同、官方格式说明、标准 API 和许可允许的 `media_kit` API／包源码，在隔离草稿中完成新实现与合成测试；没有读取旧实现或上游应用源码。审查没有在六目标之外发现需要新增替换的 Enjoy Player 特有表达。
+- 以上关闭本项目**已识别的源代码依赖替换路线**，没有替 Enjoy Player 改授许可、取得或声称取得商店例外。输入隔离和文本比对只是来源证据，不能单独证明全部权利状态；已完成的兼容性和原生验证范围见独立替换记录，尚未验证的手机交互、iCloud 往返及发行事项继续保留。
+- **0.8.2 及以前的历史版本**，包括提交 [`5fc65d6`](https://github.com/moonsoo531/GoodGoodStudy/tree/5fc65d6a05fba762bf3de69d1c86d72107b98cd7)，仍保留当时的 AGPL v3 与上游归属。历史 root `LICENSE` 与保留的 [Enjoy Player AGPL 原文](../licenses/Enjoy-Player-AGPL-3.0.txt) SHA-256 为 `295bb876726c108705923d975c988e74ccf9557a2fe581fc79f576bb76a26208`。当前 MIT 选择不追溯修改历史版本；若继续分发旧版二进制，应按其实际源码与许可履行当时义务。
+- Flutter 模板与框架补丁、Dart 包、SDK 资源补丁和原生媒体库不是统一改授 MIT 的项目自有代码。版权与许可告知见[第三方说明](../THIRD_PARTY_NOTICES.md)。教材、题库、字幕、音视频和用户数据权利也不由软件许可授予。
 
-[FSF 2010 年关于 App Store 的解释](https://www.fsf.org/blogs/licensing/more-about-the-app-store-gpl-enforcement)明确讨论附加限制与强 copyleft 的冲突。这是历史上的权利方解释，不能直接当作对 2026 年 Apple 条款和本项目 AGPLv3 组合的最终裁定。当前需要的是对实际适用条款和实际权利链的确认，而不是笼统宣称“一切开源都能上架”或“一切 AGPL 都绝不可能上架”。
+MIT 的使用、复制、修改和分发条件以[完整 LICENSE](../LICENSE)为准；[OSI 的 MIT 原文](https://opensource.org/license/mit)要求保留版权和许可告知。发行包仍应携带实际所含第三方组件要求的通知，而不能只附项目 MIT 名称。
 
-## 需要关闭的许可门槛
+## 发布检查的当前状态
 
-| 编号 | 当前结论 | 可关闭的证据 |
+| 编号 | 当前结论 | 发布记录或下一步 |
 |---|---|---|
-| LIC-01 上游代码与 Apple 分发条件 | 未确认兼容；本仓库无相关例外授权记录 | 针对实际代码、版权人及实际分发条款的书面兼容性审查，或覆盖相应权利人的明确附加许可/替代许可，或完成有证据的独立替换路线 |
-| LIC-02 对应源码与版权告知 | 已保留源码、AGPL 原文、上游归属和构建工具；尚非某个商店二进制的最终源码交付记录 | 为最终 binary 固定准确源码版本、依赖/补丁及构建说明，核实完整 Corresponding Source 和必要告知/安装信息义务，提供稳定可取得的路径；不得提交私人签名密钥 |
-| LIC-03 macOS 原生媒体二进制 | 包级 MIT 已保留；实际 libmpv/FFmpeg 等的发行材料未闭环 | 按最终 artifact 的实际组件和构建选项准备许可证原文、对应源码/补丁、链接与替换要求和必要 codec 权利核对；不能以 Dart wrapper 的 MIT 替代 |
+| LIC-01 已识别派生源码 | 已采用独立替换路线；当前项目自有／独立代码采用 MIT，历史 AGPL 保留 | 本记录随集成提交固定，已记录源码哈希、187 项针对性用例与 22/22 原生检查；不把过程证据描述为法律保证或上游授权 |
+| LIC-02 版权、许可与源码版本 | 保留 MIT、历史 AGPL 及第三方原文；应用内 MIT 正文可见，iOS/macOS 包内 MIT 与根 LICENSE 精确一致，73 项构建输入一致 | 核对应用内告知、随包通知、准确源码版本、依赖锁定和补丁来源；历史 AGPL 或原生 LGPL 等若适用，按其实际条款准备相应材料，不提交私人签名密钥 |
+| LIC-03 macOS 原生媒体二进制 | 包级 MIT 已保留；实际 libmpv/FFmpeg 等的发行材料仍待闭环 | 按最终 artifact 的组件和构建选项准备许可证、对应源码／补丁，核对链接与替换条件及 codec 权利；不能以 Dart wrapper 的 MIT 替代 |
+| LIC-04 SDK 与商店发行 | 独立于当前源码许可选择 | iOS 开发 IPA 与 macOS release 均已构建并通过 strict/deep 签名；iOS SDK 补丁哈希正确，macOS 保留平台原声明。继续核对 Privacy Report、SDK 适用性及实际商店信息；尚未上传 TestFlight 或通过 App Store 审核 |
 
-这些是项目的发行检查门槛，不是对用户 Apple 开发者账户、版权人私人沟通或未提供法律意见的推测。用户有权开源本项目，并不表示可以替第三方改授不同许可；本审查也没有更改根 `LICENSE` 或删去归属。
+[Apple Developer Program License Agreement](https://developer.apple.com/support/terms/apple-developer-program-license-agreement/)、[标准 EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)和[自定义 EULA 要求](https://developer.apple.com/help/app-store-connect/manage-app-information/provide-a-custom-license-agreement)仍应按实际发行方式核对。当前路线不依赖旧 AGPL 代码的商店例外，也不能把 TestFlight 或其他分发渠道视为免除第三方义务。
 
-## 可行路线
-
-**路线 A：确认现有代码可按拟定方式发行。** 整理派生文件、上游提交、实际版权贡献者、拟用商店 EULA、地区和分发方式，交由有权评估的人核对。若需要额外许可，向有权授权的版权人取得足以覆盖该发行方式的书面许可，并归档范围、版本及条件。维护者身份本身不保证拥有所有贡献的版权。
-
-**路线 B：独立替换相关派生实现。** 依据公开格式规范和产品要求独立实现并验证，保留独立实现过程和来源记录；逐项确认没有残留受原许可约束的表达或其他不兼容依赖。历史 AGPL 版本仍保留原许可；不能只改一行 LICENSE、重命名类或移除版权注释宣称完成。
-
-**路线 C：暂缓商店二进制分发。** 继续完善当前 AGPL 源码、自用构建、隐私、导入体验和质量验证，直到 A 或 B 有明确结论。任何其他对外二进制渠道也按其实际条款和开源义务单独审查，不把更换渠道自动当作免责。
-
-可供权利人审阅的请求草稿（仅准备，未发送）：
-
-> GoodGoodStudy selectively derives the files listed in our provenance document from Enjoy Player commit dfeae6cf09cbd9f22c2cf7cea1bf01e32b0c6fff. We are evaluating distribution of an iOS/macOS app through Apple's App Store and TestFlight. Could the relevant copyright holders confirm whether they authorize the intended distribution under its applicable terms, and, if needed, offer an explicit additional permission or alternative license? Please identify the covered files, revisions, rights holders, conditions and retained notice/source obligations. We will not treat this request or silence as permission.
+SDK `package_info_plus` 10.2.2 已确认的隐私声明缺项由本项目可重现构建资源补丁处理，且保留原 BSD 通知；应用自身 manifest 不替代 SDK 声明。本轮 iOS 开发 IPA 的 SDK 自身 manifest 已核实补丁后哈希并通过宿主 strict/deep 签名；Apple 处理结果仍未取得，见[隐私与 SDK 审查](app-store-privacy-audit.md)和[补丁来源](app-store-package-info-privacy-patch.md)。
 
 ## macOS 原生播放组件
 
-锁定的 `media_kit_libs_macos_video` 1.1.4 下载 `libmpv-xcframeworks_v0.6.0_macos-universal-video-default.tar.gz`，预期 SHA-256 为 `84d2ad98e046e82c6dc34d8547d76c2afeaee89c0f53032773be8985c95536d6`。其[对应 v0.6.0 构建来源](https://github.com/media-kit/libmpv-darwin-build/tree/v0.6.0)说明 default/full 采用 LGPL 配置，区别于 encodersgpl；这不等于本轮已验证最终包中的每个二进制。
+锁定的 `media_kit_libs_macos_video` 1.1.4 下载 `libmpv-xcframeworks_v0.6.0_macos-universal-video-default.tar.gz`，预期 SHA-256 为 `84d2ad98e046e82c6dc34d8547d76c2afeaee89c0f53032773be8985c95536d6`。其[对应 v0.6.0 构建来源](https://github.com/media-kit/libmpv-darwin-build/tree/v0.6.0)说明 default/full 采用 LGPL 配置；这不等于已审计最终包中的所有二进制。
 
-下一步应按真实 artifact 固定组件版本、构建选项、源码/补丁与许可证，核实 LGPL 等的链接/修改后替换条件，以及涉及的 codec 权利。GPL/LGPL 不是“禁止商业使用”的同义词。不要根据上游表格里的商业使用图标或 wrapper 的 MIT 名称推导完整法律结论，也不要把 macOS 原生库的结论未经检查套用到使用 AVPlayer 的 iOS 包。
-
-保留的直接和相关平台包文本见[第三方说明](../THIRD_PARTY_NOTICES.md)。它们是必要版权材料的一部分，不是 LIC-01 或 LIC-03 的完成证明。
+应按真实 artifact 固定组件版本、构建选项、源码／补丁与许可证，核实适用的链接、修改后替换和源码提供条件，以及 codec 权利。当前源码的 MIT 选择没有关闭这一项。也不能未经检查把 macOS 原生库的结论套到使用 Apple AVPlayer 的 iOS 包。

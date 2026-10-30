@@ -123,20 +123,17 @@ class SupportStrings {
     'Version information is unavailable',
   );
   String get source => text('公开源码', '公開ソースコード', 'Public source code');
-  String get license => text(
-    '软件许可（AGPL v3）',
-    'ソフトウェアライセンス（AGPL v3）',
-    'Software license (AGPL v3)',
-  );
+  String get license =>
+      text('软件许可（MIT）', 'ソフトウェアライセンス（MIT）', 'Software license (MIT)');
   String get thirdPartyNotices =>
       text('第三方声明', 'サードパーティーの表記', 'Third-party notices');
   String get componentLicenses =>
       text('开源组件许可', 'オープンソースコンポーネントのライセンス', 'Open-source component licenses');
   String get privacy => text('隐私政策', 'プライバシーポリシー', 'Privacy policy');
   String get licenseSummary => text(
-    '软件代码采用 GNU AGPL v3，第三方组件保留各自许可。复制、修改和分发条件请以完整许可为准。',
-    'ソフトウェアのコードは GNU AGPL v3 に基づき、サードパーティーのコンポーネントにはそれぞれのライセンスが適用されます。複製・改変・配布の条件は各ライセンスをご確認ください。',
-    'The software code uses GNU AGPL v3. Third-party components retain their own licenses. See the full licenses for conditions on copying, modifying and distributing the software.',
+    '当前版本的项目自有代码采用 MIT 许可，第三方组件保留各自许可。历史版本的许可与来源记录可在源码仓库查看。',
+    '現行バージョンのプロジェクト独自コードには MIT ライセンスが適用されます。サードパーティーのコンポーネントにはそれぞれのライセンスが適用され、旧バージョンのライセンスと出典はリポジトリで確認できます。',
+    'Project-owned code in this version uses the MIT License. Third-party components retain their own licenses. Historical licenses and source records remain available in the repository.',
   );
   String get cannotOpenLink =>
       text('无法打开链接', 'リンクを開けません', 'Could not open the link');

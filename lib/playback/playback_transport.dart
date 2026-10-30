@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:media_kit/media_kit.dart';
 
+/// A value captured from the transport's current state.
 class PlaybackSnapshot {
   const PlaybackSnapshot({
     this.position = Duration.zero,
@@ -27,6 +29,7 @@ abstract interface class PlaybackTransport {
   Stream<bool> get bufferingStream;
   Stream<bool> get completedStream;
   Stream<String> get errorStream;
+
   Future<void> open(Uri file);
   Future<void> play();
   Future<void> pause();
@@ -35,135 +38,197 @@ abstract interface class PlaybackTransport {
   Future<void> dispose();
 }
 
-/// Optional capability for unloading media without disposing the player.
-/// Transports without it can still be cleared at the controller level by
-/// pausing, while native transports can additionally release file resources.
 abstract interface class ClearablePlaybackTransport {
   Future<void> clearMedia();
 }
 
-final class MediaKitPlaybackTransport
+/// Owns one native player and never replaces it when media changes.
+class MediaKitPlaybackTransport
     implements PlaybackTransport, ClearablePlaybackTransport {
-  MediaKitPlaybackTransport() : _player = Player();
-
-  static const _openTimeout = Duration(seconds: 15);
+  MediaKitPlaybackTransport()
+    : _player = Player(
+        configuration: const PlayerConfiguration(
+          libass: false,
+          protocolWhitelist: ['file'],
+        ),
+      );
 
   final Player _player;
+  Future<void> _tail = Future<void>.value();
+  Future<void>? _disposal;
+  bool _closing = false;
 
   @override
   Player get nativePlayer => _player;
 
   @override
-  PlaybackSnapshot get snapshot => PlaybackSnapshot(
-    position: _player.state.position,
-    duration: _player.state.duration,
-    playing: _player.state.playing,
-    buffering: _player.state.buffering,
-    rate: _player.state.rate,
-  );
+  PlaybackSnapshot get snapshot {
+    final state = _player.state;
+    return PlaybackSnapshot(
+      position: state.position,
+      duration: state.duration,
+      playing: state.playing,
+      buffering: state.buffering,
+      rate: state.rate,
+    );
+  }
 
   @override
   Stream<Duration> get positionStream => _player.stream.position;
-
   @override
   Stream<Duration> get durationStream => _player.stream.duration;
-
   @override
   Stream<bool> get playingStream => _player.stream.playing;
-
   @override
   Stream<bool> get bufferingStream => _player.stream.buffering;
-
   @override
   Stream<bool> get completedStream => _player.stream.completed;
-
   @override
   Stream<String> get errorStream => _player.stream.error;
 
-  @override
-  Future<void> open(Uri file) async {
-    final native = _player.platform;
-    if (native is NativePlayer) {
-      // External SRT/VTT belongs to the app's ruby/timeline renderer. Avoid
-      // exposing an automatically loaded sidecar as a second embedded track.
-      await native.setProperty('sub-auto', 'no');
+  Future<void> _submit(Future<void> Function() command) {
+    if (_closing) {
+      return Future<void>.error(StateError('The media transport is closed.'));
     }
-    final media = Media(file.toString());
+    final result = _tail.then((_) => command());
+    // Keep a successful queue tail even when the command's caller sees failure.
+    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  @override
+  Future<void> open(Uri file) {
+    if (file.scheme != 'file' ||
+        file.authority.isNotEmpty ||
+        !file.hasAbsolutePath ||
+        file.hasQuery ||
+        file.hasFragment) {
+      return Future<void>.error(
+        ArgumentError.value(
+          file,
+          'file',
+          'An absolute local file URI is required.',
+        ),
+      );
+    }
+    return _submit(() async {
+      // The reset removes both old metadata and media_kit's distinct-stream
+      // history before listening for metadata from the next file.
+      await _player.stop();
+      await _disableSubtitleSelection();
+      await _loadMetadata(file);
+      await _player.setSubtitleTrack(SubtitleTrack.no());
+    });
+  }
+
+  Future<void> _disableSubtitleSelection() async {
+    final platform = _player.platform;
+    if (platform is NativePlayer) {
+      await platform.setProperty('sub-auto', 'no');
+    }
+    await _player.setSubtitleTrack(SubtitleTrack.no());
+  }
+
+  Future<void> _loadMetadata(Uri file) async {
     final ready = Completer<void>();
-    var resetSeen = false;
-    var checkingSource = false;
-    final durationSubscription = _player.stream.duration.listen((
-      duration,
-    ) async {
-      if (duration == Duration.zero) {
-        resetSeen = true;
-        return;
-      }
-      if (!resetSeen ||
-          duration < Duration.zero ||
-          ready.isCompleted ||
-          checkingSource) {
-        return;
-      }
-      checkingSource = true;
+    var sawDuration = false;
+    var probing = false;
+
+    void fail(Object error, [StackTrace? stack]) {
+      if (!ready.isCompleted) ready.completeError(error, stack);
+    }
+
+    Future<void> probe() async {
+      if (ready.isCompleted || probing || !sawDuration) return;
+      probing = true;
       try {
-        final native = _player.platform;
-        if (native is NativePlayer) {
-          final path = await native.getProperty(
-            'path',
-            waitForInitialization: false,
+        final stateDuration = _player.state.duration;
+        if (stateDuration <= Duration.zero) return;
+        final platform = _player.platform;
+        if (platform is NativePlayer) {
+          final path = await platform.getProperty('path');
+          if (!_matchesFile(path, file)) return;
+          final seconds = double.tryParse(
+            await platform.getProperty('duration'),
           );
-          if (Media.normalizeURI(path) != media.uri) return;
+          if (seconds == null || !seconds.isFinite || seconds <= 0) return;
+          // The direct metadata query also guards against an old duration event
+          // that was already in flight when the previous file was stopped.
+          final streamSeconds = stateDuration.inMicroseconds / 1000000;
+          if ((streamSeconds - seconds).abs() > 0.01) return;
         }
         if (!ready.isCompleted) ready.complete();
-      } catch (error, stackTrace) {
-        if (!ready.isCompleted) ready.completeError(error, stackTrace);
+      } catch (error, stack) {
+        fail(error, stack);
       } finally {
-        checkingSource = false;
+        probing = false;
       }
-    });
-    final errorSubscription = _player.stream.error.listen((error) {
-      if (resetSeen && error.isNotEmpty && !ready.isCompleted) {
-        ready.completeError(StateError(error));
+    }
+
+    final durations = durationStream.listen((value) {
+      if (value > Duration.zero) {
+        sawDuration = true;
+        unawaited(probe());
       }
+    }, onError: fail);
+    final errors = errorStream.listen((message) {
+      fail(StateError('The decoder could not prepare this file: $message'));
+    }, onError: fail);
+    final timeout = Timer(const Duration(seconds: 15), () {
+      fail(
+        TimeoutException(
+          'Local media metadata was not available.',
+          const Duration(seconds: 15),
+        ),
+      );
     });
-    final metadataReady = ready.future.timeout(
-      _openTimeout,
-      onTimeout: () => throw TimeoutException(
-        'Local media metadata did not become ready.',
-        _openTimeout,
-      ),
-    );
+    final poll = Timer.periodic(const Duration(milliseconds: 40), (_) {
+      unawaited(probe());
+    });
     try {
+      // Listen before submitting open: a backend is allowed to publish metadata
+      // synchronously, and open completing alone does not establish readiness.
       await Future.wait<void>([
-        _player.open(media, play: false),
-        metadataReady,
+        ready.future,
+        _player.open(Media(file.toString()), play: false),
       ], eagerError: true);
-      await _player.setSubtitleTrack(SubtitleTrack.no());
     } finally {
-      await durationSubscription.cancel();
-      await errorSubscription.cancel();
-      if (!ready.isCompleted) {
-        ready.completeError(StateError('Local media open was cancelled.'));
-      }
+      timeout.cancel();
+      poll.cancel();
+      await durations.cancel();
+      await errors.cancel();
+    }
+  }
+
+  bool _matchesFile(String path, Uri file) {
+    if (path.isEmpty) return false;
+    try {
+      final uri = Uri.parse(path);
+      final actual = uri.scheme == 'file' ? File.fromUri(uri).path : path;
+      return actual == File.fromUri(file).path;
+    } on FormatException {
+      return false;
+    } on ArgumentError {
+      return false;
     }
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() => _submit(_player.play);
+  @override
+  Future<void> pause() => _submit(_player.pause);
+  @override
+  Future<void> seek(Duration position) => _submit(() => _player.seek(position));
+  @override
+  Future<void> setRate(double rate) => _submit(() => _player.setRate(rate));
+  @override
+  Future<void> clearMedia() => _submit(_player.stop);
 
   @override
-  Future<void> pause() => _player.pause();
-
-  @override
-  Future<void> seek(Duration position) => _player.seek(position);
-
-  @override
-  Future<void> setRate(double rate) => _player.setRate(rate);
-
-  @override
-  Future<void> clearMedia() => _player.stop();
-
-  @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() {
+    final existing = _disposal;
+    if (existing != null) return existing;
+    _closing = true;
+    return _disposal = _tail.then((_) => _player.dispose());
+  }
 }

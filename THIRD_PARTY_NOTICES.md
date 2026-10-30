@@ -1,16 +1,16 @@
 # Third-party notices
 
-GoodGoodStudy is distributed under GNU Affero General Public License v3; see [LICENSE](LICENSE). The following notices preserve separate upstream terms. This document does not grant rights to textbooks, question banks, recordings, videos, subtitles or user-imported materials.
+From GoodGoodStudy 0.9.0+31, the project's own code and the independently rewritten playback/subtitle implementation use the [MIT License](LICENSE). Third-party code, framework templates, patches and native components retain their respective terms below. This document does not grant rights to textbooks, question banks, recordings, videos, subtitles or user-imported materials.
 
-## Enjoy Player
+## Historical Enjoy Player derivation
 
-Local playback and subtitle code is selectively derived from [Enjoy Player](https://github.com/baizhiheizi/enjoy_player), commit `dfeae6cf09cbd9f22c2cf7cea1bf01e32b0c6fff`, under GNU AGPL v3. See [source provenance](docs/upstream-provenance.md) and [the retained upstream license](licenses/Enjoy-Player-AGPL-3.0.txt).
+GoodGoodStudy versions through 0.8.2, including revision [`5fc65d6`](https://github.com/moonsoo531/GoodGoodStudy/tree/5fc65d6a05fba762bf3de69d1c86d72107b98cd7), selectively derived local playback and subtitle code from [Enjoy Player](https://github.com/baizhiheizi/enjoy_player), commit `dfeae6cf09cbd9f22c2cf7cea1bf01e32b0c6fff`, under GNU AGPL v3. Those historical versions retain their AGPL license and attribution. The unmodified [upstream license](licenses/Enjoy-Player-AGPL-3.0.txt) remains available with the [historical source map](docs/upstream-provenance.md).
 
-The repository does not contain an App Store-specific permission or alternative license for that upstream code. Publishing source is not by itself a conclusion that a proposed store binary meets every applicable distribution term. The current release review, unresolved rights questions and available next steps are recorded in [the distribution-license review](docs/licenses-release-review.md). This notice does not relicense third-party code or assert that permission has been obtained.
+For 0.9.0, the six identified legacy files were replaced using new implementations authored from an interoperability contract, official format references and permitted public APIs. The source review found no additional Enjoy Player-specific expression requiring replacement outside that scope. The [independent replacement record](docs/independent-replacement.md) records inputs and integration evidence; this process evidence is not a legal guarantee. This closes the identified source-dependency replacement route for the current project code. It does not relicense Enjoy Player, alter historical releases, assert an upstream store exception, or clear unrelated native-library and store requirements; see the [distribution-license review](docs/licenses-release-review.md).
 
 ## Flutter and the framework backport
 
-Flutter is Copyright 2014 The Flutter Authors, under BSD 3-Clause. [The full license](licenses/Flutter-BSD-3-Clause.txt) is retained for the reviewed Flutter PR 193372 backport and upstream regression patch in `tool/patches/`. The patch metadata records the source PR, fixed revisions, license, and exact checksums. No Flutter SDK binaries are included in this repository.
+Flutter is Copyright 2014 The Flutter Authors, under BSD 3-Clause. [The full license](licenses/Flutter-BSD-3-Clause.txt) is retained for the Flutter-generated platform scaffolding, reviewed Flutter PR 193372 backport and upstream regression patch in `tool/patches/`. The patch metadata records the source PR, fixed revisions, license, and exact checksums. No Flutter SDK binaries are included in this repository.
 
 ## Direct package license texts
 

@@ -58,3 +58,9 @@ python3 -m unittest tool/test_package_info_privacy_patch.py -v
 最终构建中检查 SDK 的 manifest 的 API 数组及上述补丁后哈希；使用相同 Xcode 环境传入 `--check` 可只读验证。之后验证 Runner 的完整代码签名，并从发行 archive 生成 Privacy Report。应用自身 manifest 和 SDK 资源声明仍分别归属，不能互相替代。
 
 后续供应方发布修复或版本变化时，先核对新源码、许可、用途和最终资源，再决定删除或更新此补丁。不得只替换允许的哈希来绕过审查。
+
+## 0.9.0+31 实际包复核
+
+本轮 iOS development IPA 内 SDK 自己的资源 manifest 已核实为上述补丁后 SHA-256 `37f23fa7aabe84ee3c9a1f162c2c036612e5142aa6e3ce1dfc711161572d3131`，导出应用的 strict/deep 签名检查通过。供应方缓存和实现未改；原始 SDK 声明缺项已在本项目可复现的 iOS 构建路径关闭。应用自身 manifest 继续独立归属，不能替代 SDK 声明。
+
+macOS 签名 release 保留该 SDK 的 macOS 原 manifest，没有对其应用 iOS 补丁。制品哈希与本轮本地构建／原位更新结果见[独立替换记录](independent-replacement.md#native-and-package-verification)。这些本地验证不代表 Xcode Privacy Report、其余 SDK 适用性或 App Store 最终审核已完成；本轮未上传 TestFlight。

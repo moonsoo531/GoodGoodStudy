@@ -31,6 +31,7 @@ import 'subtitles/subtitles.dart';
 import 'subtitles/subtitle_visibility.dart';
 import 'study/study_page.dart';
 import 'study/study_store.dart';
+import 'support/project_licenses.dart';
 import 'sync/resource_sync_controller.dart';
 import 'theme/app_theme.dart';
 import 'widgets/stable_slider.dart';
@@ -41,6 +42,7 @@ import 'widgets/player_track_sheet.dart';
 
 Future<void> main() async {
   StableSemanticsBinding.ensureInitialized();
+  registerProjectLicense();
   final themeController = AppThemeController();
   final languageController = AppLanguageController();
   late final ResourceSyncController syncController;
