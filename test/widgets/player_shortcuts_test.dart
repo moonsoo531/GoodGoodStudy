@@ -4,6 +4,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_player/widgets/player_shortcuts.dart';
 
 void main() {
+  testWidgets('holding arrows moves only one cue per press', (tester) async {
+    final harness = _ShortcutsHarness();
+    addTearDown(harness.dispose);
+    await tester.pumpWidget(harness.build());
+    harness.stageFocus.requestFocus();
+    await tester.pump();
+    for (final key in [
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.arrowLeft,
+    ]) {
+      await tester.sendKeyDownEvent(key);
+      await tester.sendKeyRepeatEvent(key);
+      await tester.sendKeyRepeatEvent(key);
+      await tester.sendKeyUpEvent(key);
+    }
+    expect(harness.events, ['nextCue', 'previousCue']);
+  });
+
   testWidgets(
     'holding space toggles playback once, including repeated events',
     (tester) async {
@@ -49,8 +67,8 @@ void main() {
       await tester.sendKeyEvent(key);
     }
     expect(harness.events, [
-      'seek:-5',
-      'seek:5',
+      'previousCue',
+      'nextCue',
       'seek:-10',
       'seek:10',
       'volume:5.0',

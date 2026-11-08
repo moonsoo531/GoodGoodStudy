@@ -86,10 +86,14 @@ class _PlayerShortcutsState extends State<PlayerShortcuts> {
             widget.onMute,
         const SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false):
             widget.onGoToTime,
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-            widget.onSeek(const Duration(seconds: -5)),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-            widget.onSeek(const Duration(seconds: 5)),
+        const SingleActivator(
+          LogicalKeyboardKey.arrowLeft,
+          includeRepeats: false,
+        ): widget.onPreviousCue,
+        const SingleActivator(
+          LogicalKeyboardKey.arrowRight,
+          includeRepeats: false,
+        ): widget.onNextCue,
         const SingleActivator(LogicalKeyboardKey.keyJ): () =>
             widget.onSeek(const Duration(seconds: -10)),
         const SingleActivator(LogicalKeyboardKey.keyL): () =>

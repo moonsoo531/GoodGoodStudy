@@ -139,12 +139,14 @@ class PlayerPage extends StatefulWidget {
     this.videoSurface,
     this.trackController,
     this.scanMedia,
+    this.findSubtitle = findCompanionSubtitle,
   });
   final OfflinePlayback? playback;
   final LocalStateStore? stateStore;
   final Widget? videoSurface;
   final MediaTracksController? trackController;
   final LocalMediaScanner? scanMedia;
+  final Future<String?> Function(String) findSubtitle;
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -198,6 +200,8 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   String? _restoreCurrentPath;
   Duration _restorePosition = Duration.zero;
   final _subtitleScroll = ScrollController();
+  final _currentCue = ValueNotifier<SubtitleCue?>(null);
+  bool _subtitleFollowScheduled = false;
   final _stageKey = const ValueKey('player-stage');
   late final VideoController _video = VideoController(_playback.player);
   List<LocalLesson> _lessons = [];
@@ -211,6 +215,8 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   MediaScanProgress? _scanProgress;
   bool _draggingFiles = false;
   bool _fullScreen = false;
+  bool _fullScreenSubtitleSidebar = true;
+  static const _subtitleRowExtent = 128.0;
   bool _fullScreenChanging = false;
   bool? _pendingFullScreen;
   bool _showPlaylist = true;
@@ -237,6 +243,8 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   bool _hasReadings = false;
   bool _follow = true;
   bool _audioMode = false;
+  bool _sentenceMode = false;
+  bool _cueMoving = false;
   double _fontSize = 27;
   double _subtitleBottom = 0.1;
   double _volume = 65;
@@ -244,7 +252,6 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   Duration _offset = Duration.zero;
   Duration? _pointA;
   int? _passes;
-  int? _lastCueIndex;
   Timer? _saveTimer;
   Timer? _stopTimer;
   DateTime? _stopAt;
@@ -422,6 +429,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     final enabled = _pendingFullScreen!;
     _pendingFullScreen = null;
     setState(() {
+      if (enabled && !_fullScreen) _fullScreenSubtitleSidebar = true;
       _fullScreen = enabled;
       _fullScreenChanging = false;
       _chromeVisible = true;
@@ -451,6 +459,21 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       rethrow;
     }
   });
+
+  double _fullScreenSidebarWidth(double width) =>
+      (width * 0.32).clamp(260.0, 360.0);
+
+  bool get _showSubtitleSidebar =>
+      _fullScreen ? _fullScreenSubtitleSidebar : !_showPlaylist;
+
+  void _toggleFullScreenSubtitleSidebar() {
+    setState(() {
+      _fullScreenSubtitleSidebar = !_fullScreenSubtitleSidebar;
+      // Removing the sidebar does not dispatch MouseRegion.onExit.
+      if (!_fullScreenSubtitleSidebar) _hoveringChrome = false;
+    });
+    _revealChrome();
+  }
 
   Future<void> _study() => _run(() async {
     if (_navigation case final navigation?) {
@@ -500,8 +523,10 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
             (e) => LocalLesson.fromJson(Map<String, dynamic>.from(e as Map)),
           ),
         );
-        _fontSize = (data['fontSize'] as num? ?? 27).toDouble();
-        _subtitleBottom = (data['subtitleBottom'] as num? ?? 0.1).toDouble();
+        _fontSize = (data['fontSize'] as num? ?? 27).toDouble().clamp(16, 46);
+        _subtitleBottom = (data['subtitleBottom'] as num? ?? 0.1)
+            .toDouble()
+            .clamp(0.02, 0.65);
         _offset = Duration(milliseconds: data['offsetMs'] as int? ?? 0);
         _subtitleVisibility = SubtitleVisibility.fromJson(data);
         _showReadings = data['showReadings'] as bool? ?? true;
@@ -617,25 +642,9 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
         _playback.position < _playback.duration) {
       _completedIdentity = null;
     }
-    final index = _current?.index;
-    final cueChanged = index != _lastCueIndex;
-    if (cueChanged) {
-      _lastCueIndex = index;
-      if (_follow && index != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _subtitleScroll.hasClients) {
-            _subtitleScroll.animateTo(
-              (index * 104.0 - 104).clamp(
-                0,
-                _subtitleScroll.position.maxScrollExtent,
-              ),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      }
-    }
+    // Position ticks and cue changes must not rebuild the video surface or the
+    // rest of the page. Only the caption and selected subtitle row depend on it.
+    _currentCue.value = _current;
     final signature = (
       _playback.playing,
       _playback.buffering,
@@ -648,7 +657,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       _playback.loop?.start,
       _playback.loop?.end,
     );
-    if (cueChanged || signature != _lastPlaybackSignature) {
+    if (signature != _lastPlaybackSignature) {
       _lastPlaybackSignature = signature;
       if (!_playback.playing) {
         _revealChrome();
@@ -1040,6 +1049,14 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
         position == null &&
         _lesson?.identity == lesson.identity &&
         _playback.localPath == path) {
+      if (_subtitlePath == null) {
+        final companion = await widget.findSubtitle(path);
+        if (companion != null) {
+          await _loadSubtitle(companion);
+          _tracks?.setExternalSubtitlesAvailable(true);
+          await _tracks?.selectExternalSubtitles();
+        }
+      }
       if (autoplay && epoch == _autoplayEpoch && !_playback.playing) {
         await _playback.play();
       }
@@ -1067,15 +1084,19 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       _audioMode = useAudio;
       _pointA = null;
       _dragPosition = null;
-      _lastCueIndex = null;
       _offset = saved?.offset ?? Duration.zero;
       _cues = [];
+      _currentCue.value = null;
       _hasReadings = false;
       _subtitlePath = null;
       try {
-        await _loadSubtitle(
-          subtitleOverride ?? saved?.subtitlePath ?? lesson.subtitlePath,
-        );
+        final preferredSubtitle =
+            subtitleOverride ?? saved?.subtitlePath ?? lesson.subtitlePath;
+        final subtitle =
+            preferredSubtitle != null && await File(preferredSubtitle).exists()
+            ? preferredSubtitle
+            : await widget.findSubtitle(path);
+        await _loadSubtitle(subtitle);
       } catch (error) {
         _message = '媒体已打开，字幕载入失败：$error';
       }
@@ -1129,6 +1150,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       _hasReadings = hasReadings;
       _subtitlePath = path;
     });
+    _currentCue.value = _current;
   }
 
   Future<void> _pickSubtitle() => _enqueueMedia(() async {
@@ -1287,6 +1309,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   });
 
   Future<void> _applyNativeSubtitleOffset() async {
+    _currentCue.value = _current;
     if (widget.playback != null) return;
     final platform = _playback.player.platform;
     if (platform is NativePlayer) {
@@ -1508,10 +1531,40 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     _playback.clearLoop();
     _pointA = null;
     await _playback.seek(_cueStart(cue));
+    if (_sentenceMode) {
+      await _playback.setLoop(
+        _cueStart(cue),
+        cue.end + _offset,
+        repeatCount: _passes ?? 1,
+      );
+      await _playback.play();
+    }
     _save();
   });
 
+  Future<void> _moveCue(bool forward) async {
+    if (_cueMoving) return;
+    _cueMoving = true;
+    try {
+      final position = _sentenceMode && _playback.loop != null
+          ? _playback.loop!.start
+          : _playback.position;
+      await _jump(
+        forward
+            ? nextCue(_cues, position, offset: _offset)
+            : previousCue(_cues, position, offset: _offset),
+      );
+    } finally {
+      _cueMoving = false;
+    }
+  }
+
   Future<void> _loopCue() => _run(() async {
+    if (_playback.loop != null) {
+      _playback.clearLoop();
+      setState(() => _sentenceMode = false);
+      return;
+    }
     final cue = _current;
     if (!_ready || cue == null) return;
     await _playback.setLoop(
@@ -1605,12 +1658,12 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     unawaited(shutdown.catchError((Object _) {}));
     _playback.dispose();
     _subtitleScroll.dispose();
+    _currentCue.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final current = _current;
     final errors = [
       ?_stateWarning,
       if ((_message ?? _playback.error) != null) (_message ?? _playback.error)!,
@@ -1631,10 +1684,8 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       onEscape: () {
         if (_fullScreen) unawaited(_setFullScreen(false));
       },
-      onPreviousCue: () =>
-          _jump(previousCue(_cues, _playback.position, offset: _offset)),
-      onNextCue: () =>
-          _jump(nextCue(_cues, _playback.position, offset: _offset)),
+      onPreviousCue: () => _moveCue(false),
+      onNextCue: () => _moveCue(true),
       onGoToTime: _goToTime,
       onTraverseControls: _traverseFullScreenControls,
       child: Scaffold(
@@ -1766,23 +1817,35 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                         builder: (context, constraints) => Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(child: _stage(current)),
+                            Expanded(child: _stage()),
                             SizedBox(width: _fullScreen ? 0 : 14),
-                            Visibility(
-                              visible:
-                                  !_fullScreen && constraints.maxWidth >= 760,
-                              child: SizedBox(
-                                width: 320,
+                            if (_fullScreen
+                                ? _fullScreenSubtitleSidebar
+                                : constraints.maxWidth >= 760)
+                              SizedBox(
+                                key: _fullScreen
+                                    ? const ValueKey(
+                                        'fullscreen-subtitle-sidebar',
+                                      )
+                                    : null,
+                                width: _fullScreen
+                                    ? _fullScreenSidebarWidth(
+                                        constraints.maxWidth,
+                                      )
+                                    : 320,
                                 child: constraints.maxHeight < 280
                                     ? SingleChildScrollView(
                                         child: SizedBox(
                                           height: 360,
-                                          child: _sidePanel(current),
+                                          child: _fullScreen
+                                              ? _fullScreenSubtitlePanel()
+                                              : _sidePanel(),
                                         ),
                                       )
-                                    : _sidePanel(current),
+                                    : _fullScreen
+                                    ? _fullScreenSubtitlePanel()
+                                    : _sidePanel(),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -1930,7 +1993,13 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _fullScreenChrome() => Positioned.fill(
+  Widget _fullScreenChrome() => Positioned(
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: _fullScreenSubtitleSidebar
+        ? _fullScreenSidebarWidth(MediaQuery.sizeOf(context).width)
+        : 0,
     child: TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 220),
@@ -1981,6 +2050,20 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                                   : Icons.subtitles_off_outlined,
                             ),
                             label: Text(context.tr("字幕")),
+                          ),
+                          IconButton(
+                            key: const ValueKey(
+                              'fullscreen-subtitle-sidebar-toggle',
+                            ),
+                            tooltip: context.tr(
+                              _fullScreenSubtitleSidebar ? '隐藏字幕栏' : '显示字幕栏',
+                            ),
+                            onPressed: _toggleFullScreenSubtitleSidebar,
+                            icon: Icon(
+                              _fullScreenSubtitleSidebar
+                                  ? Icons.view_sidebar
+                                  : Icons.view_sidebar_outlined,
+                            ),
                           ),
                           IconButton(
                             tooltip: context.tr("音轨与字幕"),
@@ -2128,7 +2211,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _stage(SubtitleCue? current) => GestureDetector(
+  Widget _stage() => GestureDetector(
     key: _stageKey,
     onTap: _ready ? _togglePlayback : null,
     onDoubleTap: () => _setFullScreen(!_fullScreen),
@@ -2144,30 +2227,33 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
             children: [
               // Keep the video surface mounted while opening paused media, so it
               // receives the initial decoded frame before _lesson is assigned.
-              widget.videoSurface ??
-                  Video(
-                    controller: _video,
-                    subtitleViewConfiguration: SubtitleViewConfiguration(
-                      visible:
-                          (_tracks?.useEmbeddedSubtitles ?? false) &&
-                          _subtitleVisibility.video,
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        height: 1.4,
-                        color: Colors.white,
-                        backgroundColor: const Color(0xB3000000),
+              RepaintBoundary(
+                child:
+                    widget.videoSurface ??
+                    Video(
+                      controller: _video,
+                      subtitleViewConfiguration: SubtitleViewConfiguration(
+                        visible:
+                            (_tracks?.useEmbeddedSubtitles ?? false) &&
+                            _subtitleVisibility.video,
+                        style: TextStyle(
+                          fontSize: _fontSize,
+                          height: 1.4,
+                          color: Colors.white,
+                          backgroundColor: const Color(0xB3000000),
+                        ),
+                        padding: EdgeInsets.fromLTRB(
+                          18,
+                          0,
+                          18,
+                          size.maxHeight * _subtitleBottom,
+                        ),
                       ),
-                      padding: EdgeInsets.fromLTRB(
-                        18,
-                        0,
-                        18,
-                        size.maxHeight * _subtitleBottom,
-                      ),
+                      controls: NoVideoControls,
+                      wakelock: false,
+                      pauseUponEnteringBackgroundMode: false,
                     ),
-                    controls: NoVideoControls,
-                    wakelock: false,
-                    pauseUponEnteringBackgroundMode: false,
-                  ),
+              ),
               if (_lesson == null || _audioMode)
                 Positioned.fill(
                   child: ColoredBox(
@@ -2239,20 +2325,27 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-              if (current != null && (_tracks?.useExternalSubtitles ?? true))
+              if (_tracks?.useExternalSubtitles ?? true)
                 Positioned(
                   left: 18,
                   right: 18,
                   bottom: size.maxHeight * _subtitleBottom,
                   child: Center(
-                    child: ScreenSubtitleText(
-                      visible: _subtitleVisibility.video,
-                      text: current.text,
-                      showReadings: _showReadings,
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        height: 1.5,
-                        color: Colors.white,
+                    child: RepaintBoundary(
+                      child: ValueListenableBuilder<SubtitleCue?>(
+                        valueListenable: _currentCue,
+                        builder: (context, current, _) => current == null
+                            ? const SizedBox.shrink()
+                            : ScreenSubtitleText(
+                                visible: _subtitleVisibility.video,
+                                text: current.text,
+                                showReadings: _showReadings,
+                                style: TextStyle(
+                                  fontSize: _fontSize,
+                                  height: 1.5,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ),
                   ),
@@ -2277,7 +2370,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _sidePanel(SubtitleCue? current) => DecoratedBox(
+  Widget _sidePanel() => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(14),
@@ -2308,10 +2401,10 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
           ),
         ),
         Expanded(
-          child: ListenableBuilder(
-            listenable: _playback,
-            builder: (context, _) => _showPlaylist
-                ? PlayerPlaylist(
+          child: _showPlaylist
+              ? ListenableBuilder(
+                  listenable: _playback,
+                  builder: (context, _) => PlayerPlaylist(
                     lessons: _lessons,
                     current: _lesson,
                     playing: _playback.playing,
@@ -2330,13 +2423,69 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                     onAutoAdvanceChanged: (value) => _setPlaylistMode(
                       value ? PlaylistMode.sequential : PlaylistMode.manual,
                     ),
-                  )
-                : _subtitlePanel(current),
-          ),
+                  ),
+                )
+              : ValueListenableBuilder<SubtitleCue?>(
+                  valueListenable: _currentCue,
+                  builder: (context, current, _) {
+                    _scheduleSubtitleFollow();
+                    return _subtitlePanel(current);
+                  },
+                ),
         ),
       ],
     ),
   );
+
+  Widget _fullScreenSubtitlePanel() => _chromeRegion(
+    Padding(
+      padding: const EdgeInsets.all(8),
+      child: ValueListenableBuilder<SubtitleCue?>(
+        valueListenable: _currentCue,
+        builder: (context, current, _) {
+          _scheduleSubtitleFollow();
+          return _subtitlePanel(current);
+        },
+      ),
+    ),
+  );
+
+  void _scheduleSubtitleFollow() {
+    if (_subtitleFollowScheduled || !_follow || !_showSubtitleSidebar) {
+      return;
+    }
+    _subtitleFollowScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _subtitleFollowScheduled = false;
+      if (!mounted) return;
+      final index = _currentCue.value?.index;
+      if (!_follow ||
+          !_showSubtitleSidebar ||
+          index == null ||
+          !_subtitleScroll.hasClients) {
+        return;
+      }
+      final position = _subtitleScroll.position;
+      final top = index * _subtitleRowExtent;
+      final bottom = top + _subtitleRowExtent;
+      if (top >= position.pixels &&
+          bottom <= position.pixels + position.viewportDimension) {
+        return;
+      }
+      final target = (top - _subtitleRowExtent).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      if ((target - position.pixels).abs() < 1) return;
+      unawaited(
+        _subtitleScroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+  }
 
   Widget _subtitlePanel(SubtitleCue? current) => DecoratedBox(
     decoration: BoxDecoration(
@@ -2380,6 +2529,13 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                 onPressed: _subtitleSettings,
                 icon: const Icon(Icons.tune, size: 19),
               ),
+              if (_fullScreen)
+                IconButton(
+                  key: const ValueKey('fullscreen-subtitle-sidebar-close'),
+                  tooltip: context.tr('隐藏字幕栏'),
+                  onPressed: _toggleFullScreenSubtitleSidebar,
+                  icon: const Icon(Icons.chevron_right),
+                ),
             ],
           ),
         ),
@@ -2413,8 +2569,9 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                   ),
                 )
               : ListView.builder(
+                  key: const ValueKey('subtitle-list'),
                   controller: _subtitleScroll,
-                  itemExtent: 104,
+                  itemExtent: _subtitleRowExtent,
                   itemCount: _cues.length,
                   itemBuilder: (context, index) {
                     final cue = _cues[index];
@@ -2444,23 +2601,26 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              SubtitleListText(
-                                visible: _subtitleVisibility.list,
-                                text: cue.text,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.25,
-                                  color: _subtitleVisibility.list
-                                      ? selected
-                                            ? Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimaryContainer
-                                            : Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface
-                                      : Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                              Flexible(
+                                child: SubtitleListText(
+                                  visible: _subtitleVisibility.list,
+                                  text: cue.text,
+                                  showReadings: _showReadings,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.25,
+                                    color: _subtitleVisibility.list
+                                        ? selected
+                                              ? Theme.of(context)
+                                                    .colorScheme
+                                                    .onPrimaryContainer
+                                              : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                        : Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -2614,6 +2774,12 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                       : null,
                 ),
               ],
+              TextButton.icon(
+                key: const ValueKey('playback-subtitle-settings'),
+                onPressed: _subtitleSettings,
+                icon: const Icon(Icons.tune, size: 19),
+                label: Text(context.tr('字幕设置')),
+              ),
               PopupMenuButton<double>(
                 tooltip: context.tr("播放速度"),
                 initialValue: _playback.rate,
@@ -2734,22 +2900,42 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     spacing: 4,
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
+      FilterChip(
+        label: const Text('逐句播放'),
+        selected: _sentenceMode,
+        onSelected: !_ready || _cues.isEmpty
+            ? null
+            : (enabled) async {
+                setState(() {
+                  _sentenceMode = enabled;
+                  if (enabled && _passes == null) _passes = 1;
+                });
+                if (enabled) {
+                  await _jump(
+                    _current ??
+                        nextCue(_cues, _playback.position, offset: _offset),
+                  );
+                } else {
+                  _playback.clearLoop();
+                }
+              },
+      ),
       OutlinedButton.icon(
         onPressed:
             _ready &&
-                _current != null &&
+                (_current != null || _playback.loop != null) &&
                 (_tracks?.useExternalSubtitles ?? true)
             ? _loopCue
             : null,
         icon: const Icon(Icons.repeat_one, size: 18),
-        label: Text(context.tr("循环当前句")),
+        label: Text(context.tr(_playback.loop == null ? '循环当前句' : '退出循环')),
       ),
       DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: _passes ?? 0,
           items: [
             for (final option in [
-              (0, context.tr("无限")),
+              if (!_sentenceMode) (0, context.tr("无限")),
               (1, context.tr("1遍停")),
               (3, context.tr("3遍停")),
             ])
@@ -2863,6 +3049,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                   divisions: 30,
                   onChanged: (value) {
                     setState(() => _fontSize = value);
+                    _save();
                     refresh(() {});
                   },
                 ),
@@ -2873,6 +3060,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                   max: 0.65,
                   onChanged: (value) {
                     setState(() => _subtitleBottom = value);
+                    _save();
                     refresh(() {});
                   },
                 ),

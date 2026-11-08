@@ -144,6 +144,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('cached cue text updates across reading and layout changes', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      const first = '<ruby>日本語<rt>にほんご</rt></ruby>を学ぶ。';
+      const second = '<ruby>明日<rt>あした</rt></ruby>も学ぶ。';
+      await showSubtitle(tester, first, width: 300);
+      final state = tester.state(find.byType(RubySubtitleText));
+      expect(find.text('にほんご'), findsOneWidget);
+
+      await showSubtitle(tester, first, showReadings: false, width: 180);
+      expect(tester.state(find.byType(RubySubtitleText)), same(state));
+      expect(find.text('日本語を学ぶ。'), findsOneWidget);
+      expect(find.text('にほんご'), findsNothing);
+
+      // Reuse the same element for the next cue while readings remain hidden.
+      await showSubtitle(tester, second, showReadings: false, width: 180);
+      expect(tester.state(find.byType(RubySubtitleText)), same(state));
+      expect(find.text('明日も学ぶ。'), findsOneWidget);
+      expect(find.text('日本語を学ぶ。'), findsNothing);
+
+      await showSubtitle(tester, second, width: 180, scale: 1.5);
+      expect(tester.state(find.byType(RubySubtitleText)), same(state));
+      expect(find.text('あした'), findsOneWidget);
+      expect(find.text('にほんご'), findsNothing);
+      expect(
+        tester
+            .getSemantics(find.byType(RubySubtitleText))
+            .getSemanticsData()
+            .label,
+        '明日も学ぶ。',
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('maxLines caps narrow multiline subtitle height', (tester) async {
     const text =
         '<ruby>日本語<rt>にほんご</rt></ruby>と<ruby>英語<rt>えいご</rt></ruby>を学びます。'

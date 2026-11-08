@@ -96,6 +96,14 @@ def audit(root):
             issue(relative, "outside-source-allowlist")
         if any(part in BLOCKED_PARTS or part.endswith((".app", ".dSYM", ".xcarchive")) for part in parts):
             issue(relative, "private-or-generated-directory")
+        # This exact public source-and-license archive is a macOS build input.
+        # All other archives, including a changed file at this path, require review.
+        if relative == "macos/Runner/Playback-Notices-and-Sources.zip":
+            raw = path.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()
+            if digest == "1711047e4eaabe7cc1ba46301562b2a056fdc160aa8f48e3878d511e5c8f2450":
+                manifest.append({"path": relative, "bytes": len(raw), "sha256": digest})
+                continue
         if path.suffix.lower() in BLOCKED_SUFFIXES or relative in GENERATED_FILES:
             issue(relative, "private-resource-or-generated-file")
         if relative in PRIVATE_TESTS:

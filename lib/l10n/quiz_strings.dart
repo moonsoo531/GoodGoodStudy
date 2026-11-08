@@ -9,9 +9,9 @@ const Map<String, List<String>> quizStrings = {
     "選択した解答はこの端末に保存され、後で再開できます。",
     "Your answers are saved on this device. You can continue later.",
   ],
-  "已选答案会保存在本机。计时继续，到期后按已有答案交卷。": [
-    "選択した解答はこの端末に保存されます。制限時間は進み続け、時間切れになると解答済みの内容で提出されます。",
-    "Your answers are saved on this device. The timer keeps running and submits your saved answers when time expires.",
+  "已选答案和剩余时间会保存在本机。离开后暂停计时，继续测试时恢复。": [
+    "解答と残り時間はこの端末に保存されます。終了すると計時を一時停止し、テスト再開時に再開します。",
+    "Your answers and remaining time are saved on this device. The timer pauses when you leave and resumes when you continue the test.",
   ],
   "保存并离开": ["保存して終了", "Save and leave"],
   "测试记录": ["テスト履歴", "Test history"],

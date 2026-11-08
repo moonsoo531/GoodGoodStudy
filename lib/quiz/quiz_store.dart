@@ -532,6 +532,7 @@ class QuizStore {
   }) => _serial(() async {
     final session = await _requireActive(packageId, sessionId);
     final clock = now ?? DateTime.now();
+    if (session.isPaused) throw StateError('请先继续测试后再作答。');
     if (session.isExpired(clock)) {
       throw QuizSessionExpiredException(
         await _finish(packageId, sessionId, clock),
@@ -562,6 +563,7 @@ class QuizStore {
   }) => _serial(() async {
     final session = await _requireActive(packageId, sessionId);
     final clock = now ?? DateTime.now();
+    if (session.isPaused) throw StateError('请先继续测试后再作答。');
     if (session.isExpired(clock)) {
       throw QuizSessionExpiredException(
         await _finish(packageId, sessionId, clock),
@@ -573,6 +575,44 @@ class QuizStore {
     final updated = session.copyWith(currentIndex: index);
     await _atomicJson(await _activeFile(packageId), updated.toJson());
     return updated;
+  });
+
+  Future<QuizSession> pauseSession(
+    String packageId,
+    String sessionId, {
+    DateTime? now,
+  }) => _serial(() async {
+    final session = await _requireActive(packageId, sessionId);
+    final clock = now ?? DateTime.now();
+    if (session.isExpired(clock)) {
+      throw QuizSessionExpiredException(
+        await _finish(packageId, sessionId, clock),
+      );
+    }
+    final paused = session.pause(clock);
+    if (!identical(paused, session)) {
+      await _atomicJson(await _activeFile(packageId), paused.toJson());
+    }
+    return paused;
+  });
+
+  Future<QuizSession> resumeSession(
+    String packageId,
+    String sessionId, {
+    DateTime? now,
+  }) => _serial(() async {
+    final session = await _requireActive(packageId, sessionId);
+    final clock = now ?? DateTime.now();
+    if (session.isExpired(clock)) {
+      throw QuizSessionExpiredException(
+        await _finish(packageId, sessionId, clock),
+      );
+    }
+    final resumed = session.resume(clock);
+    if (!identical(resumed, session)) {
+      await _atomicJson(await _activeFile(packageId), resumed.toJson());
+    }
+    return resumed;
   });
 
   Future<QuizSession> _requireActive(String packageId, String sessionId) async {
@@ -611,12 +651,13 @@ class QuizStore {
         if (active?.id != sessionId) rethrow;
       }
     }
-    final session = await _requireActive(packageId, sessionId);
+    final session = (await _requireActive(packageId, sessionId)).resume(now);
     final timedOut = session.isExpired(now);
+    final earliestEnd = session.startedAt.add(session.pausedDuration);
     final ended = timedOut
         ? session.deadlineAt!
-        : now.isBefore(session.startedAt)
-        ? session.startedAt
+        : now.isBefore(earliestEnd)
+        ? earliestEnd
         : now.toUtc();
     final result = QuizAttempt(
       session: session.copyWith(endedAt: ended, timedOut: timedOut),

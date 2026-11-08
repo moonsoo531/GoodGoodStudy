@@ -24,6 +24,56 @@ const _files = MethodChannel('offline_player/local_files');
 
 void main() {
   testWidgets(
+    'sentence loop toggles off and sentence mode starts a finite loop',
+    (tester) async {
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      try {
+        await tester.runAsync(harness.seedSubtitles);
+        await harness.mount(tester);
+        await _flush(
+          tester,
+          until: () => find.byType(ScreenSubtitleText).evaluate().isNotEmpty,
+        );
+        await tester.tap(find.text('循环当前句'));
+        await _flush(tester, until: () => harness.playback.loop != null);
+        await tester.tap(find.text('退出循环'));
+        await _flush(tester, until: () => harness.playback.loop == null);
+        await tester.tap(find.text('逐句播放'));
+        await _flush(tester, until: () => harness.playback.loop != null);
+        expect(harness.playback.loop!.repeatCount, isNotNull);
+        await tester.tap(find.text('逐句播放'));
+        await _flush(tester, until: () => harness.playback.loop == null);
+      } finally {
+        await harness.close(tester);
+      }
+    },
+  );
+
+  testWidgets('opening a saved video discovers its new same-name subtitle', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync(_DesktopHarness.create))!;
+    try {
+      final subtitle = await tester.runAsync(
+        () =>
+            File('${harness.directory.path}/第一课.srt')
+                .writeAsString('1\n00:00:00,000 --> 00:01:00,000\n自動字幕\n'),
+      );
+      harness.findSubtitle = findCompanionSubtitle;
+      await harness.mount(tester);
+      await _flush(
+        tester,
+        until: () => find.byType(ScreenSubtitleText).evaluate().isNotEmpty,
+      );
+      expect(find.byType(ScreenSubtitleText), findsOneWidget);
+      await harness.close(tester);
+      expect(tester.takeException(), isNull);
+      expect(subtitle, isNotNull);
+    } finally {
+      await harness.close(tester);
+    }
+  });
+  testWidgets(
     'app exit flushes the final position and closes every player once',
     (tester) async {
       final harness = (await tester.runAsync(_DesktopHarness.create))!;
@@ -517,6 +567,102 @@ void main() {
   });
 
   testWidgets(
+    'fullscreen opens subtitle sidebar and preserves manual hiding until the next entry',
+    (tester) async {
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      const caption = '<ruby>字幕<rt>じまく</rt></ruby>の確認';
+      final sidebar = find.byKey(const ValueKey('fullscreen-subtitle-sidebar'));
+      final toggle = find.byKey(
+        const ValueKey('fullscreen-subtitle-sidebar-toggle'),
+      );
+      try {
+        await tester.runAsync(
+          () => harness.seedSubtitles(
+            contents: '1\n00:00:00,000 --> 00:00:20,000\n$caption\n',
+            showPlaylist: true,
+          ),
+        );
+        await harness.mount(tester);
+        await _flush(
+          tester,
+          until: () => find.byType(ScreenSubtitleText).evaluate().isNotEmpty,
+        );
+        expect(find.byType(PlayerPlaylist), findsOneWidget);
+        final opened = List<Uri>.of(harness.transport.opened);
+        final seeks = List<Duration>.of(harness.transport.seeks);
+
+        await harness.nativeCall(tester, 'fullScreenChanged', true);
+        await _flush(tester);
+        expect(sidebar, findsOneWidget);
+        expect(
+          find.descendant(of: sidebar, matching: find.byType(SubtitleListText)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: sidebar, matching: find.text('じまく')),
+          findsOneWidget,
+        );
+        expect(find.byType(PlayerPlaylist), findsNothing);
+        expect(toggle, findsOneWidget);
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(sidebar, findsNothing);
+        // Native callbacks can repeat during window animation. They must not
+        // undo a visibility choice made in the same fullscreen session.
+        await harness.nativeCall(tester, 'fullScreenChanged', true);
+        await _flush(tester);
+        expect(sidebar, findsNothing);
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(sidebar, findsOneWidget);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(sidebar, findsNothing);
+        await harness.nativeCall(tester, 'fullScreenChanged', false);
+        await _flush(tester);
+        expect(find.byType(PlayerPlaylist), findsOneWidget);
+        await harness.nativeCall(tester, 'fullScreenChanged', true);
+        await _flush(tester);
+        expect(sidebar, findsOneWidget);
+        expect(harness.transport.opened, opened);
+        expect(harness.transport.seeks, seeks);
+        expect(harness.playback.position, const Duration(seconds: 12));
+        expect(tester.takeException(), isNull);
+      } finally {
+        await harness.close(tester);
+      }
+    },
+  );
+
+  testWidgets('fullscreen subtitle sidebar fits a compact window', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync(_DesktopHarness.create))!;
+    try {
+      await tester.runAsync(() => harness.seedSubtitles());
+      await harness.mount(tester);
+      await _flush(
+        tester,
+        until: () => find.byType(ScreenSubtitleText).evaluate().isNotEmpty,
+      );
+      tester.view.physicalSize = const Size(640, 480);
+      await harness.nativeCall(tester, 'fullScreenChanged', true);
+      await _flush(tester);
+      final sidebar = find.byKey(const ValueKey('fullscreen-subtitle-sidebar'));
+      expect(sidebar, findsOneWidget);
+      expect(tester.getSize(sidebar).width, greaterThan(0));
+      expect(tester.getSize(sidebar).width, lessThan(640));
+      expect(tester.getTopLeft(sidebar).dx, greaterThanOrEqualTo(0));
+      expect(tester.getBottomRight(sidebar).dx, lessThanOrEqualTo(640));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await harness.close(tester);
+    }
+  });
+
+  testWidgets(
     'fullscreen controls hide while playing and Tab reveals a control',
     (tester) async {
       final harness = (await tester.runAsync(_DesktopHarness.create))!;
@@ -586,7 +732,14 @@ void main() {
     (tester) async {
       final harness = (await tester.runAsync(_DesktopHarness.create))!;
       try {
+        await tester.runAsync(() => harness.seedSubtitles());
         await harness.mount(tester);
+        await _flush(
+          tester,
+          until: () =>
+              find.byType(ScreenSubtitleText).evaluate().isNotEmpty &&
+              find.byType(CircularProgressIndicator).evaluate().isEmpty,
+        );
         await harness.playback.play();
         await tester.pump();
         final stage = find.byKey(const ValueKey('player-stage'));
@@ -610,6 +763,12 @@ void main() {
           (call) => call.method == 'setFullScreen',
         );
         expect(request.arguments, {'enabled': true});
+        await harness.nativeCall(tester, 'fullScreenChanged', true);
+        await _flush(tester);
+        expect(
+          find.byKey(const ValueKey('fullscreen-subtitle-sidebar')),
+          findsOneWidget,
+        );
         expect(harness.transport.pauseCount, pauses);
         expect(harness.transport.playCount, plays);
         expect(harness.playback.playing, isFalse);
@@ -686,6 +845,243 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'subtitle progress rebuilds only changed captions and rows, preserving the video stage',
+    (tester) async {
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      const first = '<ruby>学校<rt>がっこう</rt></ruby>へ行きます';
+      const second = '<ruby>次<rt>つぎ</rt></ruby>の字幕';
+      try {
+        await tester.runAsync(
+          () => harness.seedSubtitles(
+            contents:
+                '1\n00:00:00,000 --> 00:00:20,000\n$first\n\n'
+                '2\n00:00:22,000 --> 00:00:40,000\n$second\n',
+            showPlaylist: false,
+          ),
+        );
+        await harness.mount(tester);
+        await harness.playback.play();
+        await _flush(
+          tester,
+          until: () => find.byType(SubtitleListText).evaluate().isNotEmpty,
+        );
+        final stageFinder = find.byKey(const ValueKey('player-stage'));
+        final stage = tester.widget<GestureDetector>(stageFinder);
+        final caption = tester.widget<ScreenSubtitleText>(
+          find.byType(ScreenSubtitleText),
+        );
+        final firstRowFinder = find.byWidgetPredicate(
+          (widget) => widget is SubtitleListText && widget.text == first,
+        );
+        final firstRow = tester.widget<SubtitleListText>(firstRowFinder);
+        expect(caption.text, first);
+        final initialSeeks = List<Duration>.of(harness.transport.seeks);
+        final initialPauseCount = harness.transport.pauseCount;
+
+        for (final seconds in [13, 14, 15]) {
+          harness.transport.emitPosition(Duration(seconds: seconds));
+          await tester.pump();
+          expect(tester.widget<GestureDetector>(stageFinder), same(stage));
+          expect(
+            tester.widget<ScreenSubtitleText>(find.byType(ScreenSubtitleText)),
+            same(caption),
+          );
+          expect(
+            tester.widget<SubtitleListText>(firstRowFinder),
+            same(firstRow),
+          );
+        }
+
+        harness.transport.emitPosition(const Duration(seconds: 23));
+        await tester.pump();
+        expect(tester.widget<GestureDetector>(stageFinder), same(stage));
+        expect(
+          tester
+              .widget<ScreenSubtitleText>(find.byType(ScreenSubtitleText))
+              .text,
+          second,
+        );
+        final secondRowFinder = find.byWidgetPredicate(
+          (widget) => widget is SubtitleListText && widget.text == second,
+        );
+        final colors = Theme.of(tester.element(secondRowFinder)).colorScheme;
+        expect(
+          tester
+              .element(secondRowFinder)
+              .findAncestorWidgetOfExactType<Material>()!
+              .color,
+          colors.primaryContainer,
+        );
+        expect(
+          tester
+              .element(firstRowFinder)
+              .findAncestorWidgetOfExactType<Material>()!
+              .color,
+          Colors.transparent,
+        );
+
+        harness.transport.emitPosition(const Duration(seconds: 21));
+        await tester.pump();
+        expect(find.byType(ScreenSubtitleText), findsNothing);
+        expect(tester.widget<GestureDetector>(stageFinder), same(stage));
+        expect(harness.transport.seeks, initialSeeks);
+        expect(harness.transport.pauseCount, initialPauseCount);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await harness.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'subtitle following keeps visible rows stationary and scrolls only outside the viewport',
+    (tester) async {
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      String timestamp(int seconds) =>
+          '00:${(seconds ~/ 60).toString().padLeft(2, '0')}:'
+          '${(seconds % 60).toString().padLeft(2, '0')},000';
+      final contents = List.generate(
+        16,
+        (index) =>
+            '${index + 1}\n${timestamp(index * 20)} --> '
+            '${timestamp((index + 1) * 20)}\n'
+            '<ruby>字幕<rt>じまく</rt></ruby> $index\n',
+      ).join('\n');
+      try {
+        await tester.runAsync(
+          () => harness.seedSubtitles(contents: contents, showPlaylist: false),
+        );
+        harness.transport.durations[harness.first.path] = const Duration(
+          minutes: 10,
+        );
+        await harness.mount(tester);
+        await harness.playback.play();
+        await _flush(
+          tester,
+          until: () => find.byType(SubtitleListText).evaluate().isNotEmpty,
+        );
+        final listFinder = find.ancestor(
+          of: find.byType(SubtitleListText).first,
+          matching: find.byType(ListView),
+        );
+        final list = tester.widget<ListView>(listFinder);
+        final controller = list.controller!;
+        final rowExtent = list.itemExtent!;
+        await tester.pump(const Duration(milliseconds: 300));
+        final initialOffset = controller.offset;
+        expect(
+          controller.position.viewportDimension,
+          greaterThan(3 * rowExtent),
+        );
+
+        harness.transport.emitPosition(const Duration(seconds: 41));
+        await tester.pumpAndSettle();
+        expect(controller.offset, initialOffset);
+
+        harness.transport.emitPosition(const Duration(seconds: 301));
+        await tester.pumpAndSettle();
+        expect(controller.offset, greaterThan(initialOffset));
+        final selectedTop = 15 * rowExtent;
+        expect(selectedTop, greaterThanOrEqualTo(controller.offset - 1));
+        expect(
+          selectedTop + rowExtent,
+          lessThanOrEqualTo(
+            controller.offset + controller.position.viewportDimension + 1,
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        await harness.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'paused subtitle replacement and visibility refresh current captions without stale text',
+    (tester) async {
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      try {
+        await tester.runAsync(() => harness.seedSubtitles(showPlaylist: false));
+        final replacement = File('${harness.directory.path}/replacement.srt');
+        await tester.runAsync(
+          () => replacement.writeAsString(
+            '1\n00:00:00,000 --> 00:00:20,000\n'
+            '<ruby>新字幕<rt>しんじまく</rt></ruby>\n',
+          ),
+        );
+        harness.picker.picked = _PickedFile(replacement);
+        await harness.mount(tester);
+        await _flush(
+          tester,
+          until: () => find.byType(ScreenSubtitleText).evaluate().isNotEmpty,
+        );
+        expect(harness.playback.playing, isFalse);
+        expect(
+          tester
+              .widget<ScreenSubtitleText>(find.byType(ScreenSubtitleText))
+              .text,
+          '保留的原字幕',
+        );
+        await tester.tap(find.text('载入字幕'));
+        await _flush(
+          tester,
+          until: () =>
+              tester
+                  .widget<ScreenSubtitleText>(find.byType(ScreenSubtitleText))
+                  .text ==
+              '<ruby>新字幕<rt>しんじまく</rt></ruby>',
+        );
+        Finder screenReading() => find.descendant(
+          of: find.byType(ScreenSubtitleText),
+          matching: find.text('しんじまく'),
+        );
+        expect(screenReading(), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SubtitleListText),
+            matching: find.text('しんじまく'),
+          ),
+          findsOneWidget,
+        );
+        expect(harness.playback.position, const Duration(seconds: 12));
+        expect(harness.playback.playing, isFalse);
+        final visibility = find.descendant(
+          of: find.byType(SubtitleVisibilityControls),
+          matching: find.widgetWithText(FilterChip, '画面字幕'),
+        );
+        await tester.tap(visibility);
+        await _flush(tester);
+        expect(
+          tester
+              .widget<ScreenSubtitleText>(find.byType(ScreenSubtitleText))
+              .visible,
+          isFalse,
+        );
+        expect(screenReading(), findsNothing);
+        expect(find.text('しんじまく'), findsOneWidget);
+        await tester.tap(visibility);
+        await _flush(tester);
+        expect(screenReading(), findsOneWidget);
+        expect(find.text('しんじまく'), findsNWidgets(2));
+        await tester.tap(find.byTooltip('字幕设置'));
+        await tester.pumpAndSettle();
+        final readings = find.widgetWithText(SwitchListTile, '显示已标注的假名');
+        await tester.tap(readings);
+        await tester.pumpAndSettle();
+        expect(find.text('しんじまく'), findsNothing);
+        await tester.tap(readings);
+        await tester.pumpAndSettle();
+        expect(find.text('しんじまく'), findsNWidgets(2));
+        await tester.tap(find.text('完成'));
+        await _flush(tester);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await harness.close(tester);
+      }
+    },
+  );
 
   testWidgets(
     'opening another media with broken subtitles clears the previous captions',
@@ -856,17 +1252,17 @@ void main() {
       expect(find.textContaining('已扫描 24 项'), findsOneWidget);
       await tester.tap(find.byTooltip('暂停 (空格)'));
       await _flush(tester, until: () => !harness.playback.playing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
       await _flush(
         tester,
-        until: () => harness.playback.position == const Duration(seconds: 17),
+        until: () => harness.playback.position == const Duration(seconds: 22),
       );
       scanner.completeMedia(harness.third, directory: true);
       await _withIo(tester, () => reply);
       await _flush(tester);
       expect(harness.playback.playing, isFalse);
       expect(harness.playback.localPath, harness.first.path);
-      expect(harness.playback.position, const Duration(seconds: 17));
+      expect(harness.playback.position, const Duration(seconds: 22));
       expect(harness.transport.opened, [harness.first.uri]);
       expect(find.text('共 3 项'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -1028,6 +1424,7 @@ class _DesktopHarness {
   final platformCalls = <MethodCall>[];
   final picker = _Picker();
   LocalMediaScanner? scanMedia;
+  Future<String?> Function(String) findSubtitle = (_) async => null;
   FilePickerPlatform? originalPicker;
   final FakeDesktopPlaybackTransport transport;
   bool _closed = false;
@@ -1040,10 +1437,15 @@ class _DesktopHarness {
       File('${directory.path}/state/offline-player-state.json');
   File get backupFile => File('${stateFile.path}.bak');
 
-  Future<File> seedSubtitles({bool brokenSecond = false}) async {
+  Future<File> seedSubtitles({
+    bool brokenSecond = false,
+    String? contents,
+    bool? showPlaylist,
+  }) async {
     final subtitle = await File('${directory.path}/original.srt').writeAsString(
-      '1\n00:00:00,000 --> 00:00:20,000\n保留的原字幕\n\n'
-      '2\n00:00:20,000 --> 00:00:40,000\n后面的第二句\n',
+      contents ??
+          '1\n00:00:00,000 --> 00:00:20,000\n保留的原字幕\n\n'
+              '2\n00:00:20,000 --> 00:00:40,000\n后面的第二句\n',
     );
     final saved = (await store.read())!;
     final items = lessons.map((lesson) => lesson.toJson()).toList();
@@ -1057,6 +1459,7 @@ class _DesktopHarness {
       ...saved,
       'lessons': items,
       'subtitlePath': subtitle.path,
+      'showPlaylist': ?showPlaylist,
     });
     return subtitle;
   }
@@ -1123,6 +1526,8 @@ class _DesktopHarness {
             stateStore: store,
             videoSurface: const ColoredBox(color: Colors.black),
             scanMedia: scanMedia,
+            // Filesystem discovery is covered by companion_subtitle_test.
+            findSubtitle: findSubtitle,
           ),
         ),
       ),

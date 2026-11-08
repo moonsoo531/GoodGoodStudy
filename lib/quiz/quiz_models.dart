@@ -293,6 +293,8 @@ class QuizSession {
     required this.currentIndex,
     required this.startedAt,
     required this.deadlineAt,
+    this.pausedAt,
+    this.pausedDuration = Duration.zero,
     this.endedAt,
     this.timedOut = false,
   });
@@ -307,25 +309,51 @@ class QuizSession {
   final int currentIndex;
   final DateTime startedAt;
   final DateTime? deadlineAt;
+  final DateTime? pausedAt;
+  final Duration pausedDuration;
   final DateTime? endedAt;
   final bool timedOut;
 
   bool get isCompleted => endedAt != null;
+  bool get isPaused => pausedAt != null && !isCompleted;
   bool isExpired([DateTime? now]) =>
       !isCompleted &&
+      !isPaused &&
       deadlineAt != null &&
       !(now ?? DateTime.now()).isBefore(deadlineAt!);
   int? remainingSeconds([DateTime? now]) {
     if (deadlineAt == null) return null;
     final milliseconds = deadlineAt!
-        .difference(endedAt ?? now ?? DateTime.now())
+        .difference(endedAt ?? pausedAt ?? now ?? DateTime.now())
         .inMilliseconds;
     return milliseconds <= 0 ? 0 : (milliseconds + 999) ~/ 1000;
+  }
+
+  QuizSession pause(DateTime now) {
+    if (isCompleted || isPaused) return this;
+    final earliest = startedAt.add(pausedDuration);
+    return copyWith(pausedAt: now.isBefore(earliest) ? earliest : now.toUtc());
+  }
+
+  QuizSession resume(DateTime now) {
+    if (!isPaused) return this;
+    final away = now.isBefore(pausedAt!)
+        ? Duration.zero
+        : now.difference(pausedAt!);
+    return copyWith(
+      deadlineAt: deadlineAt?.add(away),
+      pausedDuration: pausedDuration + away,
+      clearPausedAt: true,
+    );
   }
 
   QuizSession copyWith({
     Map<String, String>? answers,
     int? currentIndex,
+    DateTime? deadlineAt,
+    DateTime? pausedAt,
+    Duration? pausedDuration,
+    bool clearPausedAt = false,
     DateTime? endedAt,
     bool? timedOut,
   }) => QuizSession(
@@ -338,13 +366,18 @@ class QuizSession {
     answers: answers == null ? this.answers : Map.unmodifiable(answers),
     currentIndex: currentIndex ?? this.currentIndex,
     startedAt: startedAt,
-    deadlineAt: deadlineAt,
+    deadlineAt: deadlineAt ?? this.deadlineAt,
+    pausedAt: clearPausedAt ? null : pausedAt ?? this.pausedAt,
+    pausedDuration: pausedDuration ?? this.pausedDuration,
     endedAt: endedAt ?? this.endedAt,
     timedOut: timedOut ?? this.timedOut,
   );
 
   factory QuizSession.fromJson(Map<String, dynamic> json) {
-    if (json['schema_version'] != 1) throw const FormatException('测试记录版本无效。');
+    final version = json['schema_version'];
+    if (version != 1 && version != 2) {
+      throw const FormatException('测试记录版本无效。');
+    }
     final id = _string(json, 'id', max: 100);
     validateQuizSessionId(id);
     final packageId = _string(json, 'package_id', max: 80);
@@ -378,11 +411,26 @@ class QuizSession {
         ? null
         : _date(json, 'deadline_at');
     final ended = json['ended_at'] == null ? null : _date(json, 'ended_at');
-    final expectedDeadline = settings.durationMinutes == 0
-        ? null
-        : started.add(Duration(minutes: settings.durationMinutes));
-    if (deadline != expectedDeadline ||
+    final paused = version == 2 && json['paused_at'] != null
+        ? _date(json, 'paused_at')
+        : null;
+    final pausedMicros = version == 2
+        ? _integer(json, 'paused_duration_us')
+        : 0;
+    final pausedDuration = Duration(microseconds: pausedMicros);
+    if (pausedMicros < 0 ||
+        (settings.durationMinutes == 0
+            ? deadline != null
+            : deadline == null ||
+                  deadline.difference(started) !=
+                      Duration(minutes: settings.durationMinutes) +
+                          pausedDuration) ||
+        paused != null &&
+            (ended != null ||
+                paused.difference(started) < pausedDuration ||
+                deadline != null && !paused.isBefore(deadline)) ||
         ended != null && ended.isBefore(started) ||
+        ended != null && ended.difference(started) < pausedDuration ||
         json['timed_out'] is! bool ||
         json['timed_out'] == true && (ended == null || deadline == null) ||
         ended != null && deadline != null && ended.isAfter(deadline)) {
@@ -399,13 +447,15 @@ class QuizSession {
       currentIndex: index,
       startedAt: started,
       deadlineAt: deadline,
+      pausedAt: paused,
+      pausedDuration: pausedDuration,
       endedAt: ended,
       timedOut: json['timed_out'] as bool,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'schema_version': 1,
+    'schema_version': 2,
     'id': id,
     'package_id': packageId,
     'package_title': packageTitle,
@@ -416,6 +466,8 @@ class QuizSession {
     'current_index': currentIndex,
     'started_at': startedAt.toUtc().toIso8601String(),
     'deadline_at': deadlineAt?.toUtc().toIso8601String(),
+    'paused_at': pausedAt?.toUtc().toIso8601String(),
+    'paused_duration_us': pausedDuration.inMicroseconds,
     'ended_at': endedAt?.toUtc().toIso8601String(),
     'timed_out': timedOut,
   };
@@ -432,9 +484,10 @@ class QuizAttempt {
       .length;
   double get accuracy => totalCount == 0 ? 0 : correctCount / totalCount;
   bool get timedOut => session.timedOut;
-  int get elapsedSeconds => (session.endedAt ?? session.startedAt)
-      .difference(session.startedAt)
-      .inSeconds;
+  int get elapsedSeconds =>
+      ((session.endedAt ?? session.startedAt).difference(session.startedAt) -
+              session.pausedDuration)
+          .inSeconds;
 }
 
 class QuizQuestionStats {

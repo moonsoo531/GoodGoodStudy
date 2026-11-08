@@ -184,3 +184,27 @@ List<LocalLesson> mergePlaylist(
   }
   return merged.values.toList();
 }
+
+/// Finds a readable companion, preferring exact names and bilingual subtitles.
+Future<String?> findCompanionSubtitle(String mediaPath) async {
+  final media = File(mediaPath);
+  final base = stemOf(mediaPath).toLowerCase();
+  final names = [
+    for (final suffix in ['', '.en-ja', '.en', '.ja'])
+      for (final ext in ['srt', 'vtt']) '$base$suffix.$ext',
+  ];
+  try {
+    final files = await media.parent
+        .list(followLinks: false)
+        .where((e) => e is File)
+        .toList();
+    for (final name in names) {
+      for (final file in files) {
+        if (fileName(file.path).toLowerCase() == name) return file.path;
+      }
+    }
+  } on FileSystemException {
+    // A file-only grant may not allow access to adjacent subtitles.
+  }
+  return null;
+}

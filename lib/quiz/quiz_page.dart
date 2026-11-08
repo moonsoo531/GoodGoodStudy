@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +55,11 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   Timer? _ticker;
   AppNavigationController? _navigation;
   VoidCallback? _unregisterNavigation;
+  bool _foreground = true;
+  DateTime? _suspendedAt;
+  Future<void> _clockUpdates = Future.value();
+  Completer<void>? _workDone;
+  int _clockUpdatesPending = 0;
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
   ColorScheme get _colors => Theme.of(context).colorScheme;
@@ -101,16 +107,105 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _tick();
-    } else if (!_busy) {
-      unawaited(_rememberView());
+    final foreground = state == AppLifecycleState.resumed;
+    if (foreground == _foreground) return;
+    _foreground = foreground;
+    final clock = _now;
+    if (foreground) {
+      _suspendedAt = null;
+    } else {
+      _suspendedAt = clock;
+    }
+    // Capture the event time before waiting for a pending answer/save. Leaving
+    // during I/O must pause too, and a rapid resume must follow that pause.
+    _clockUpdatesPending++;
+    _clockUpdates = _clockUpdates
+        .then((_) async {
+          await _workDone?.future;
+          if (!mounted || _view != _View.exam) return;
+          final session = _session;
+          if (session == null) return;
+          try {
+            final updated = foreground
+                ? await _store.resumeSession(
+                    session.packageId,
+                    session.id,
+                    now: clock,
+                  )
+                : await _store.pauseSession(
+                    session.packageId,
+                    session.id,
+                    now: clock,
+                  );
+            if (mounted && _view == _View.exam && _session?.id == session.id) {
+              setState(() => _session = updated);
+            }
+          } on QuizSessionExpiredException catch (error) {
+            if (mounted && _view == _View.exam && _session?.id == session.id) {
+              await _showResult(error.attempt, automatic: true);
+            }
+          } catch (error) {
+            if (mounted) setState(() => _message = '保存进度失败：$error');
+          }
+          if (mounted) await _rememberView();
+        })
+        .whenComplete(() => _clockUpdatesPending--);
+  }
+
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    final wasForeground = _foreground;
+    _foreground = false;
+    try {
+      await _workDone?.future;
+      await _clockUpdates;
+      if (!await _rememberView()) throw StateError('测试进度尚未保存。');
+      await _pauseExam();
+      await _store.flush();
+      return AppExitResponse.exit;
+    } on QuizSessionExpiredException catch (error) {
+      await _showResult(error.attempt, automatic: true);
+      await _store.flush();
+      return AppExitResponse.exit;
+    } catch (error) {
+      // Do not close the application when its remaining time could not be saved.
+      _foreground = wasForeground;
+      if (mounted) setState(() => _message = '保存进度失败：$error');
+      return AppExitResponse.cancel;
     }
   }
 
+  Future<void> _pauseExam() async {
+    final session = _session;
+    if (_view != _View.exam || session == null) return;
+    final updated = await _store.pauseSession(
+      session.packageId,
+      session.id,
+      now: _now,
+    );
+    if (mounted && _view == _View.exam && _session?.id == session.id) {
+      setState(() => _session = updated);
+    }
+  }
+
+  Future<QuizSession> _enterExam(QuizSession session) => _foreground
+      ? _store.resumeSession(session.packageId, session.id, now: _now)
+      : _store.pauseSession(
+          session.packageId,
+          session.id,
+          now: _suspendedAt ?? _now,
+        );
+
   void _tick() {
     final session = _session;
-    if (!mounted || _view != _View.exam || session == null) return;
+    if (!mounted ||
+        !_foreground ||
+        _clockUpdatesPending > 0 ||
+        _view != _View.exam ||
+        session == null ||
+        session.isPaused) {
+      return;
+    }
     if (session.isExpired(_now)) {
       if (!_busy) unawaited(_finish(automatic: true));
     } else {
@@ -119,7 +214,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   }
 
   Future<void> _run(Future<void> Function() work) async {
-    if (!mounted || _busy) return;
+    if (!mounted || _busy || _clockUpdatesPending > 0) return;
+    final done = _workDone = Completer<void>();
     setState(() {
       _busy = true;
       _message = null;
@@ -141,6 +237,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     } finally {
       if (mounted) await _rememberView();
       if (mounted) setState(() => _busy = false);
+      done.complete();
+      if (identical(_workDone, done)) _workDone = null;
     }
   }
 
@@ -193,14 +291,10 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
         if (saved.sessionId != null && active.id != saved.sessionId) {
           return;
         }
-        if (active.isExpired(_now)) {
-          await _showResult(
-            await _store.finishSession(active.packageId, active.id, now: _now),
-            automatic: true,
-          );
-        } else if (mounted) {
+        final resumed = await _enterExam(active);
+        if (mounted) {
           setState(() {
-            _session = active;
+            _session = resumed;
             _view = _View.exam;
           });
         }
@@ -232,9 +326,16 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
 
   Future<bool> _beforeSectionLeave() async {
     if (_busy || !mounted || !await _confirmLeaveExam()) return false;
-    if (!mounted || _busy || !await _rememberView()) return false;
-    await _store.flush();
-    return mounted && !_busy;
+    var saved = false;
+    await _run(() async {
+      await _pauseExam();
+      saved = await _rememberView();
+      if (!saved && _session != null && _foreground) {
+        _session = await _enterExam(_session!);
+      }
+      await _store.flush();
+    });
+    return mounted && !_busy && saved;
   }
 
   Future<void> _refresh() async {
@@ -310,6 +411,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
       ),
       now: _now,
     );
+    if (!_foreground) _session = await _enterExam(_session!);
     await _refreshBook(_book!.package.packageId);
     if (mounted) setState(() => _view = _View.exam);
     _top();
@@ -318,14 +420,12 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   Future<void> _resume() => _run(() async {
     final active = await _store.loadActiveSession(_book!.package.packageId);
     if (active == null) throw const FormatException('当前没有未完成的测试。');
-    _session = active;
-    if (active.isExpired(_now)) {
-      await _showResult(
-        await _store.finishSession(active.packageId, active.id, now: _now),
-        automatic: true,
-      );
-    } else if (mounted) {
-      setState(() => _view = _View.exam);
+    final resumed = await _enterExam(active);
+    if (mounted) {
+      setState(() {
+        _session = resumed;
+        _view = _View.exam;
+      });
       _top();
     }
   });
@@ -442,7 +542,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
         content: Text(
           session.deadlineAt == null
               ? context.tr('已选答案会保存在本机，可以稍后继续。')
-              : context.tr('已选答案会保存在本机。计时继续，到期后按已有答案交卷。'),
+              : context.tr('已选答案和剩余时间会保存在本机。离开后暂停计时，继续测试时恢复。'),
         ),
         actions: [
           TextButton(
@@ -479,6 +579,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     if (_view == _View.exam) {
       if (!await _confirmLeaveExam()) return;
       await _run(() async {
+        await _pauseExam();
         await _refreshBook(_book!.package.packageId);
         _session = null;
         if (mounted) setState(() => _view = _View.settings);
@@ -509,7 +610,43 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _unregisterNavigation?.call();
-    _navigation?.trackShutdown(_store.flush());
+    final clock = _now;
+    // Enqueue the pause now so the store's shutdown barrier includes it. A
+    // deferred callback can otherwise run after callers have already flushed.
+    final shutdown =
+        () async {
+          if (_session == null) await _workDone?.future;
+          final session = _session;
+          if (session != null) {
+            try {
+              await _store.pauseSession(
+                session.packageId,
+                session.id,
+                now: clock,
+              );
+            } on QuizSessionExpiredException {
+              // An already expired test has been archived by the store.
+            } on StateError {
+              // A pending submission may have completed while the page unmounted.
+              if ((await _store.loadActiveSession(session.packageId))?.id ==
+                  session.id) {
+                rethrow;
+              }
+            }
+          }
+          await _store.flush();
+        }().catchError((Object error, StackTrace stack) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              library: 'quiz',
+              context: ErrorDescription('while saving a test on exit'),
+            ),
+          );
+        });
+    _navigation?.trackShutdown(shutdown);
+    unawaited(shutdown);
     _ticker?.cancel();
     _count.dispose();
     _minutes.dispose();
@@ -773,8 +910,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                     ),
                     if (active.deadlineAt != null)
                       Text(
-                        context.tr('截止 {time}', {
-                          'time': _date(active.deadlineAt!),
+                        context.tr('剩余 {time}', {
+                          'time': _duration(active.remainingSeconds(_now)!),
                         }),
                       ),
                     const SizedBox(height: 12),

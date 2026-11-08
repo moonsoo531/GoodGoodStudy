@@ -96,6 +96,8 @@ const Map<String, List<String>> mainStrings = {
   "音轨与字幕": ["音声トラックと字幕", "Audio & subtitles"],
   "字幕与音轨": ["字幕と音声トラック", "Subtitles & audio"],
   "退出全屏 (Esc)": ["全画面を終了 (Esc)", "Exit fullscreen (Esc)"],
+  "隐藏字幕栏": ["字幕パネルを隠す", "Hide subtitle sidebar"],
+  "显示字幕栏": ["字幕パネルを表示", "Show subtitle sidebar"],
   "在右侧播放列表中选择媒体": ["右のプレイリストから選択", "Select media in the playlist"],
   "导入音视频，开始播放": ["メディアを追加して再生", "Import media to start playing"],
   "上一项": ["前の項目", "Previous"],

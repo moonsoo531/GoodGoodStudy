@@ -111,6 +111,7 @@ void main() {
           isEmpty,
         );
         await tester.pumpWidget(const SizedBox.shrink());
+        await _flush(tester, store: store);
         await tester.runAsync(
           () => store.saveNavigationLocation(
             const QuizNavigationLocation(
@@ -126,6 +127,7 @@ void main() {
         );
         expect(find.byKey(const ValueKey('quiz-next')), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
+        await _flush(tester, store: store);
         late QuizAttempt result;
         await tester.runAsync(() async {
           result = await store.finishSession(
@@ -146,6 +148,7 @@ void main() {
         expect(find.text('1 / 3'), findsOneWidget);
         expect(find.text('返回测试设置'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
+        await _flush(tester, store: store);
         await tester.runAsync(
           () => store.saveNavigationLocation(
             const QuizNavigationLocation(
@@ -164,6 +167,7 @@ void main() {
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
+        await _flush(tester, store: store);
         await tester.runAsync(() async {
           await store.flush();
           await root!.delete(recursive: true);
@@ -219,7 +223,7 @@ void main() {
             ),
           ),
         );
-        await _flush(tester);
+        await _flush(tester, store: store);
         await tester.tap(find.byKey(const ValueKey('app-section-menu')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('app-section-player')));
@@ -240,16 +244,19 @@ void main() {
         expect(store.active.id, session.id);
         expect(store.active.answers, session.answers);
         expect(store.submissionCalls, 0);
+        expect(store.active.isPaused, isTrue);
         expect(store.location.view, 'exam');
         unawaited(navigation.navigate(AppSection.quiz));
-        await _flush(tester, navigation: navigation);
+        await _flush(tester, navigation: navigation, store: store);
         expect(find.byKey(const ValueKey('quiz-next')), findsOneWidget);
         expect(store.active.id, session.id);
         expect(store.active.answers, session.answers);
         expect(store.submissionCalls, 0);
+        expect(store.active.isPaused, isFalse);
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
+        await _flush(tester, store: store);
         await tester.runAsync(() async {
           await root!.delete(recursive: true);
         });
@@ -267,6 +274,7 @@ Future<QuizStore> _seed(Directory root) async {
 
 Future<void> _open(WidgetTester tester, QuizStore store) async {
   await tester.pumpWidget(const SizedBox.shrink());
+  await _flush(tester, store: store);
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(Brightness.light),
@@ -277,12 +285,13 @@ Future<void> _open(WidgetTester tester, QuizStore store) async {
       ),
     ),
   );
-  await _flush(tester);
+  await _flush(tester, store: store);
 }
 
 Future<void> _flush(
   WidgetTester tester, {
   AppNavigationController? navigation,
+  QuizStore? store,
 }) async {
   await tester.runAsync(() async {
     final deadline = DateTime.now().add(const Duration(seconds: 10));
@@ -291,12 +300,20 @@ Future<void> _flush(
       if (DateTime.now().isAfter(deadline)) {
         throw TimeoutException('Quiz navigation did not settle');
       }
-      await tester.pump();
+      var writesFinished = store == null;
+      if (store != null) {
+        unawaited(store.flush().then((_) => writesFinished = true));
+      }
+      await tester.pump(const Duration(milliseconds: 20));
       await Future<void>.delayed(const Duration(milliseconds: 5));
       final busy = find.byWidgetPredicate(
         (widget) => widget is LinearProgressIndicator && widget.value == null,
       );
-      stable = busy.evaluate().isEmpty && navigation?.isSwitching != true
+      stable =
+          writesFinished &&
+              busy.evaluate().isEmpty &&
+              !tester.binding.hasScheduledFrame &&
+              navigation?.isSwitching != true
           ? stable + 1
           : 0;
     }
@@ -319,9 +336,29 @@ class _MenuQuizStore extends QuizStore {
       sessionId: active.id,
     );
   }
-  final QuizSession active;
+  QuizSession active;
   late QuizNavigationLocation location;
   int submissionCalls = 0;
+  @override
+  Future<QuizSession> pauseSession(
+    String packageId,
+    String sessionId, {
+    DateTime? now,
+  }) async {
+    active = active.pause(now ?? DateTime.now());
+    return active;
+  }
+
+  @override
+  Future<QuizSession> resumeSession(
+    String packageId,
+    String sessionId, {
+    DateTime? now,
+  }) async {
+    active = active.resume(now ?? DateTime.now());
+    return active;
+  }
+
   @override
   Future<QuizSession?> loadActiveSession(String packageId) async => active;
   @override

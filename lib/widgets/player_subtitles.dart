@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 
-import '../subtitles/ruby_text_parser.dart';
 import '../subtitles/subtitle_visibility.dart';
 import 'ruby_subtitle_text.dart';
 
@@ -91,17 +90,27 @@ class SubtitleListText extends StatelessWidget {
     required this.visible,
     required this.text,
     required this.style,
+    this.showReadings = true,
   });
 
   final bool visible;
   final String text;
   final TextStyle style;
+  final bool showReadings;
 
   @override
-  Widget build(BuildContext context) => Text(
-    visible ? plainSubtitleText(text) : context.tr('列表字幕已隐藏'),
-    maxLines: 3,
-    overflow: TextOverflow.ellipsis,
-    style: style,
-  );
+  Widget build(BuildContext context) => visible
+      ? RubySubtitleText(
+          text: text,
+          showReadings: showReadings,
+          style: style,
+          textAlign: TextAlign.left,
+          maxLines: 3,
+        )
+      : Text(
+          context.tr('列表字幕已隐藏'),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
 }

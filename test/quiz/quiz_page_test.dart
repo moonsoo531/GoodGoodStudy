@@ -465,42 +465,169 @@ void main() {
     },
   );
 
-  testWidgets('leaving and resuming retains answers, question and deadline', (
-    tester,
-  ) async {
-    final h = await _Harness.create(tester);
-    try {
-      await h.open(tester);
-      await h.enterBook(tester);
-      await h.start(tester, minutes: 1);
-      await h.choose(tester, 'b');
-      await h.next(tester);
-      final before = (await h.active(tester))!;
-      await tester.tap(find.byType(BackButton));
-      await tester.pumpAndSettle();
-      expect(find.text('保存并离开测试？'), findsOneWidget);
-      await tester.tap(find.text('保存并离开'));
-      await h.flush(tester);
-      h.clock = h.clock.add(const Duration(seconds: 15));
-      final resume = find.byKey(const ValueKey('quiz-resume'));
-      await tester.ensureVisible(resume);
-      await tester.tap(resume);
-      await h.flush(tester);
-      final restored = (await h.active(tester))!;
-      expect(restored.id, before.id);
-      expect(restored.currentIndex, 1);
-      expect(restored.answers, {'q1': 'b'});
-      expect(restored.deadlineAt, before.deadlineAt);
-      expect(find.text('剩余 0:45'), findsOneWidget);
-      await h.previous(tester);
-      await h.choose(tester, 'a');
-      expect((await h.active(tester))!.answers['q1'], 'a');
-      expect(await h.attempts(tester), isEmpty);
-      _expectNoError(tester);
-    } finally {
-      await h.close(tester);
-    }
-  });
+  testWidgets(
+    'leaving for a day freezes remaining time and preserves answers and question',
+    (tester) async {
+      final h = await _Harness.create(tester);
+      try {
+        await h.open(tester);
+        await h.enterBook(tester);
+        await h.start(tester, minutes: 1);
+        await h.choose(tester, 'b');
+        await h.next(tester);
+        final before = (await h.active(tester))!;
+        h.clock = h.clock.add(const Duration(seconds: 10));
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.text('保存并离开测试？'), findsOneWidget);
+        await tester.tap(find.text('保存并离开'));
+        await h.flush(tester);
+        final paused = (await h.active(tester))!;
+        expect(paused.isPaused, isTrue);
+        expect(paused.remainingSeconds(h.clock), 50);
+        h.clock = h.clock.add(const Duration(days: 1));
+        expect(paused.remainingSeconds(h.clock), 50);
+        final resume = find.byKey(const ValueKey('quiz-resume'));
+        await tester.ensureVisible(resume);
+        await tester.tap(resume);
+        await h.flush(tester);
+        final restored = (await h.active(tester))!;
+        expect(restored.id, before.id);
+        expect(restored.currentIndex, 1);
+        expect(restored.answers, {'q1': 'b'});
+        expect(restored.startedAt, before.startedAt);
+        expect(restored.isPaused, isFalse);
+        expect(restored.deadlineAt, h.clock.add(const Duration(seconds: 50)));
+        expect(find.text('剩余 0:50'), findsOneWidget);
+        await h.previous(tester);
+        await h.choose(tester, 'a');
+        expect((await h.active(tester))!.answers['q1'], 'a');
+        expect(await h.attempts(tester), isEmpty);
+        _expectNoError(tester);
+      } finally {
+        await h.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'backgrounding pauses and foregrounding resumes before checking timeout',
+    (tester) async {
+      final h = await _Harness.create(tester);
+      try {
+        await h.open(tester);
+        await h.enterBook(tester);
+        await h.start(tester, minutes: 1);
+        await h.choose(tester, 'a');
+        h.clock = h.clock.add(const Duration(seconds: 20));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await h.flush(tester);
+        final paused = (await h.active(tester))!;
+        expect(paused.isPaused, isTrue);
+        expect(paused.remainingSeconds(h.clock), 40);
+        h.clock = h.clock.add(const Duration(hours: 2));
+        await tester.pump(const Duration(seconds: 1));
+        await h.flush(tester);
+        expect(await h.attempts(tester), isEmpty);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await h.flush(tester);
+        final resumed = (await h.active(tester))!;
+        expect(resumed.isPaused, isFalse);
+        expect(resumed.answers, {'q1': 'a'});
+        expect(resumed.remainingSeconds(h.clock), 40);
+        expect(find.text('剩余 0:40'), findsOneWidget);
+        h.clock = h.clock.add(const Duration(seconds: 40));
+        await tester.pump(const Duration(seconds: 1));
+        await h.flush(tester);
+        final result = (await h.attempts(tester)).single;
+        expect(result.timedOut, isTrue);
+        expect(result.elapsedSeconds, 60);
+        _expectNoError(tester);
+      } finally {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await h.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'background transitions during an answer save retain the event times',
+    (tester) async {
+      late _DelayedAnswerStore delayed;
+      final h = await _Harness.create(
+        tester,
+        storeFactory: (root) => delayed = _DelayedAnswerStore(root),
+      );
+      try {
+        await h.open(tester);
+        await h.enterBook(tester);
+        await h.start(tester, minutes: 1);
+        h.clock = h.clock.add(const Duration(seconds: 10));
+        await tester.tap(find.byKey(const ValueKey('quiz-choice-a')));
+        await tester.runAsync(() => delayed.requested.future);
+        h.clock = h.clock.add(const Duration(seconds: 2));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        h.clock = h.clock.add(const Duration(minutes: 2));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        delayed.release.complete();
+        await h.flush(tester);
+        final active = (await h.active(tester))!;
+        expect(active.answers, {'q1': 'a'});
+        expect(active.isPaused, isFalse);
+        expect(active.remainingSeconds(h.clock), 48);
+        expect(await h.attempts(tester), isEmpty);
+        _expectNoError(tester);
+      } finally {
+        if (!delayed.release.isCompleted) delayed.release.complete();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await h.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'removing the test page saves a paused session before reopening',
+    (tester) async {
+      final h = await _Harness.create(tester);
+      try {
+        await h.open(tester);
+        await h.enterBook(tester);
+        await h.start(tester, minutes: 1);
+        await h.choose(tester, 'b');
+        h.clock = h.clock.add(const Duration(seconds: 12));
+        await tester.pumpWidget(const SizedBox.shrink());
+        await h.flush(tester);
+        final paused = (await h.active(tester))!;
+        expect(paused.isPaused, isTrue);
+        h.clock = h.clock.add(const Duration(hours: 3));
+        await h.open(tester);
+        await h.enterBook(tester);
+        expect(find.byKey(const ValueKey('quiz-resume')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('quiz-resume')));
+        await h.flush(tester);
+        expect((await h.active(tester))!.remainingSeconds(h.clock), 48);
+        expect((await h.active(tester))!.answers, {'q1': 'b'});
+        expect(await h.attempts(tester), isEmpty);
+        _expectNoError(tester);
+      } finally {
+        await h.close(tester);
+      }
+    },
+  );
 
   testWidgets('timeout closes a pending submit dialog and saves only once', (
     tester,
@@ -685,12 +812,19 @@ class _Harness {
         if (DateTime.now().isAfter(deadline)) {
           throw TimeoutException('Quiz page I/O did not settle.');
         }
-        await tester.pump();
+        var writesFinished = false;
+        unawaited(store.flush().then((_) => writesFinished = true));
+        await tester.pump(const Duration(milliseconds: 20));
         await Future<void>.delayed(const Duration(milliseconds: 5));
         final busy = find.byWidgetPredicate(
           (w) => w is LinearProgressIndicator && w.value == null,
         );
-        stable = busy.evaluate().isEmpty ? stable + 1 : 0;
+        stable =
+            writesFinished &&
+                busy.evaluate().isEmpty &&
+                !tester.binding.hasScheduledFrame
+            ? stable + 1
+            : 0;
       }
     });
     await tester.pumpAndSettle();
@@ -698,6 +832,7 @@ class _Harness {
 
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
+    await flush(tester);
     await tester.runAsync(() async {
       await store.loadBookState(widgetQuizId);
       await directory.delete(recursive: true);
@@ -757,5 +892,24 @@ class _ControlledStatsStore extends QuizStore {
       throw const FileSystemException('统计暂时无法读取');
     }
     return super.stats(packageId);
+  }
+}
+
+class _DelayedAnswerStore extends QuizStore {
+  _DelayedAnswerStore(Directory root) : super(root: root);
+  final requested = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<QuizSession> answer(
+    String packageId,
+    String sessionId,
+    String questionId,
+    String choiceId, {
+    DateTime? now,
+  }) async {
+    requested.complete();
+    await release.future;
+    return super.answer(packageId, sessionId, questionId, choiceId, now: now);
   }
 }
