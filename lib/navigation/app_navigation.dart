@@ -66,8 +66,8 @@ class NavigationPreferences {
   Future<void> flush() => _pending;
 }
 
-/// Only one module is mounted. Leave guards finish before its widget is
-/// removed, and asynchronous shutdown completes before the next module mounts.
+/// Only one activity is mounted. Home can appear after the leave guard saves
+/// and pauses; resource shutdown must finish before another activity mounts.
 class AppNavigationController extends ChangeNotifier {
   AppNavigationController({
     NavigationPreferences? preferences,
@@ -87,6 +87,7 @@ class AppNavigationController extends ChangeNotifier {
   bool _loaded = false;
   bool _switching = false;
   bool _moduleMounted = true;
+  bool _unmounting = false;
   bool _disposed = false;
   String? _errorMessage;
   BeforeSectionLeave? _beforeLeave;
@@ -101,12 +102,18 @@ class AppNavigationController extends ChangeNotifier {
   bool get isSwitching => _switching;
   bool get isModuleMounted => _moduleMounted;
   String? get errorMessage => _errorMessage;
+  bool get canApplyResourceUpdates =>
+      !_unmounting &&
+      _shutdown.isEmpty &&
+      _shutdownFailure == null &&
+      (!_moduleMounted || _section == AppSection.home);
 
-  Future<void> load() => _loading ??= _load();
-  Future<void> _load() async {
+  Future<void> load({AppSection? initialSection}) =>
+      _loading ??= _load(initialSection);
+  Future<void> _load(AppSection? initialSection) async {
     final saved = await _preferences.read();
     if (_disposed) return;
-    _section = restoreLastSection ? saved : AppSection.home;
+    _section = initialSection ?? (restoreLastSection ? saved : AppSection.home);
     _lastActivity = saved == AppSection.home ? null : saved;
     _loaded = true;
     notifyListeners();
@@ -129,7 +136,15 @@ class AppNavigationController extends ChangeNotifier {
       },
     );
     _shutdown.add(tracked);
-    unawaited(tracked.whenComplete(() => _shutdown.remove(tracked)));
+    unawaited(
+      tracked.then((_) {
+        _shutdown.remove(tracked);
+        // Re-enable background resource updates once a visible home is safe.
+        if (!_disposed && !_switching && _section == AppSection.home) {
+          notifyListeners();
+        }
+      }),
+    );
   }
 
   Future<void> navigate(AppSection target) async {
@@ -141,10 +156,20 @@ class AppNavigationController extends ChangeNotifier {
       final guard = _beforeLeave;
       if (guard != null && !await guard()) return;
       if (_disposed) return;
+      _unmounting = true;
       _moduleMounted = false;
       notifyListeners();
       // Disposing the old module registers any outstanding audio shutdown.
       await WidgetsBinding.instance.endOfFrame;
+      _unmounting = false;
+      if (_disposed) return;
+      _beforeLeave = null;
+      // Home owns no audio or study files, so native teardown and sync work
+      // must not delay its first frame. The next activity still drains shutdown.
+      if (target == AppSection.home) {
+        _section = AppSection.home;
+        return;
+      }
       while (_shutdown.isNotEmpty) {
         await Future.wait(List<Future<void>>.of(_shutdown));
       }
@@ -169,6 +194,7 @@ class AppNavigationController extends ChangeNotifier {
       if (!_moduleMounted) _section = AppSection.home;
       _errorMessage = '无法切换页面，请重试。';
     } finally {
+      _unmounting = false;
       _moduleMounted = true;
       _switching = false;
       if (!_disposed) notifyListeners();

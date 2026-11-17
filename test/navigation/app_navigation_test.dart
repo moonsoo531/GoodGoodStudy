@@ -189,6 +189,92 @@ void main() {
     },
   );
 
+  testWidgets(
+    'home appears after pause and save while shutdown runs, and the next activity waits',
+    (tester) async {
+      final pauseAndSave = Completer<void>();
+      final shutdown = Completer<void>();
+      var applyCalls = 0;
+      late final AppNavigationController controller;
+      controller = AppNavigationController(
+        preferences: _MemoryPreferences(AppSection.study),
+        beforeEnter: () async {
+          expect(shutdown.isCompleted, isTrue);
+          expect(controller.canApplyResourceUpdates, isTrue);
+          applyCalls++;
+        },
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      await tester.pumpWidget(
+        _host(
+          controller,
+          onDisposeStudy: () => controller.trackShutdown(shutdown.future),
+        ),
+      );
+      controller.registerBeforeLeave(() async {
+        await pauseAndSave.future;
+        return true;
+      });
+      final goingHome = controller.navigate(AppSection.home);
+      await tester.pump();
+      expect(find.text('module-study'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-entry-player')), findsNothing);
+      expect(controller.canApplyResourceUpdates, isFalse);
+
+      pauseAndSave.complete();
+      await tester.pumpAndSettle();
+      await goingHome;
+      expect(find.byKey(const ValueKey('home-entry-player')), findsOneWidget);
+      expect(shutdown.isCompleted, isFalse);
+      expect(controller.isSwitching, isFalse);
+      expect(controller.canApplyResourceUpdates, isFalse);
+      expect(applyCalls, 0);
+
+      await tester.tap(find.byKey(const ValueKey('home-entry-quiz')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('module-quiz'), findsNothing);
+      expect(controller.isSwitching, isTrue);
+      expect(applyCalls, 0);
+      shutdown.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('module-quiz'), findsOneWidget);
+      expect(applyCalls, 1);
+      expect(controller.canApplyResourceUpdates, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('home stays visible and observes background shutdown failure', (
+    tester,
+  ) async {
+    final shutdown = Completer<void>();
+    final controller = AppNavigationController(
+      preferences: _MemoryPreferences(AppSection.study),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(
+      _host(
+        controller,
+        onDisposeStudy: () => controller.trackShutdown(shutdown.future),
+      ),
+    );
+    unawaited(controller.navigate(AppSection.home));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-entry-player')), findsOneWidget);
+    shutdown.completeError(StateError('Synthetic teardown failure'));
+    await tester.pumpAndSettle();
+    expect(controller.canApplyResourceUpdates, isFalse);
+    unawaited(controller.navigate(AppSection.quiz));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-entry-player')), findsOneWidget);
+    expect(find.text('module-quiz'), findsNothing);
+    expect(controller.errorMessage, isNotNull);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final language in ['zh', 'ja', 'en']) {
     for (final size in [const Size(320, 844), const Size(1200, 850)]) {
       testWidgets('$language entry page fits $size with large text', (

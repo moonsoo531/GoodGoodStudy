@@ -22,6 +22,7 @@ import 'navigation/app_section_menu_button.dart';
 import 'navigation/good_good_study_shell.dart';
 import 'phone/phone_player_page.dart';
 import 'playback/offline_playback.dart';
+import 'playback/desktop_media_open.dart';
 import 'playback/media_metadata.dart';
 import 'playback/media_tracks.dart';
 import 'playback/player_time.dart';
@@ -57,15 +58,21 @@ Future<void> main() async {
   syncController = ResourceSyncController(
     study: studyStore,
     quiz: quizStore,
-    canApplyRemote: () =>
-        !navigationController.isModuleMounted ||
-        navigationController.section == AppSection.home,
+    canApplyRemote: () => navigationController.canApplyResourceUpdates,
   );
   await syncController.initialize();
   navigationController.addListener(syncController.navigationChanged);
   await themeController.load();
   await languageController.load();
-  await navigationController.load();
+  final mediaOpenController = Platform.isMacOS
+      ? DesktopMediaOpenController()
+      : null;
+  await mediaOpenController?.initialize();
+  await navigationController.load(
+    initialSection: mediaOpenController?.hasPending == true
+        ? AppSection.player
+        : null,
+  );
   if (!Platform.isIOS) MediaKit.ensureInitialized();
   runApp(
     OfflinePlayerApp(
@@ -75,6 +82,7 @@ Future<void> main() async {
       studyStore: studyStore,
       quizStore: quizStore,
       syncController: syncController,
+      mediaOpenController: mediaOpenController,
     ),
   );
 }
@@ -88,6 +96,7 @@ class OfflinePlayerApp extends StatelessWidget {
     required this.studyStore,
     required this.quizStore,
     required this.syncController,
+    this.mediaOpenController,
   });
   final AppThemeController themeController;
   final AppLanguageController languageController;
@@ -95,6 +104,7 @@ class OfflinePlayerApp extends StatelessWidget {
   final StudyStore studyStore;
   final QuizStore quizStore;
   final ResourceSyncController syncController;
+  final DesktopMediaOpenController? mediaOpenController;
 
   @override
   Widget build(BuildContext context) => ResourceSyncScope(
@@ -113,17 +123,21 @@ class OfflinePlayerApp extends StatelessWidget {
             theme: buildAppTheme(Brightness.light),
             darkTheme: buildAppTheme(Brightness.dark),
             themeMode: AppThemeScope.of(context).themeMode,
-            home: GoodGoodStudyShell(
-              controller: navigationController,
-              phonePlayback: Platform.isIOS,
-              builders: {
-                AppSection.study: (_) => StudyPage(store: studyStore),
-                AppSection.quiz: (_) =>
-                    QuizPage(store: quizStore, restoreLastLocation: true),
-                AppSection.player: (_) => Platform.isIOS
-                    ? const PhonePlayerPage()
-                    : const PlayerPage(),
-              },
+            home: DesktopMediaOpenRouter(
+              controller: mediaOpenController,
+              navigation: navigationController,
+              child: GoodGoodStudyShell(
+                controller: navigationController,
+                phonePlayback: Platform.isIOS,
+                builders: {
+                  AppSection.study: (_) => StudyPage(store: studyStore),
+                  AppSection.quiz: (_) =>
+                      QuizPage(store: quizStore, restoreLastLocation: true),
+                  AppSection.player: (_) => Platform.isIOS
+                      ? const PhonePlayerPage()
+                      : PlayerPage(mediaOpenController: mediaOpenController),
+                },
+              ),
             ),
           ),
         ),
@@ -141,6 +155,8 @@ class PlayerPage extends StatefulWidget {
     this.trackController,
     this.scanMedia,
     this.findSubtitle = findCompanionSubtitle,
+    this.metadataReader,
+    this.mediaOpenController,
   });
   final OfflinePlayback? playback;
   final LocalStateStore? stateStore;
@@ -148,6 +164,8 @@ class PlayerPage extends StatefulWidget {
   final MediaTracksController? trackController;
   final LocalMediaScanner? scanMedia;
   final Future<String?> Function(String) findSubtitle;
+  final MediaMetadataReader? metadataReader;
+  final DesktopMediaOpenController? mediaOpenController;
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -168,16 +186,30 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   }
 
   Future<bool> _leaveSection() async {
-    if (_loading || _importing || _exiting) return false;
-    _autoplayEpoch++;
-    _pendingCompletionFor = null;
-    _scanCancellation?.cancel();
-    await _mediaOperations;
-    if (_fullScreen) await _setFullScreen(false);
-    await _playback.pause();
-    _save();
-    await _store.flush();
-    return true;
+    if (_loading ||
+        _importing ||
+        _exiting ||
+        _leavingSection ||
+        _processingExternal) {
+      return false;
+    }
+    _leavingSection = true;
+    _metadata?.setSuspended(true);
+    try {
+      _autoplayEpoch++;
+      _pendingCompletionFor = null;
+      _scanCancellation?.cancel();
+      await _mediaOperations;
+      if (_fullScreen) await _setFullScreen(false);
+      await _playback.pause();
+      _save();
+      await _store.flush();
+      return true;
+    } catch (_) {
+      _leavingSection = false;
+      _syncMetadataQueue();
+      rethrow;
+    }
   }
 
   static const _files = MethodChannel('offline_player/local_files');
@@ -189,13 +221,18 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
           ? MediaTracksController(_playback.player)
           : null);
   MediaHistory _history = MediaHistory();
-  late final MediaMetadataReader? _metadata = widget.playback == null
-      ? MediaMetadataReader(onDuration: _receivedDuration)
-      : null;
+  late final MediaMetadataReader? _metadata =
+      widget.metadataReader ??
+      (widget.playback == null
+          ? MediaMetadataReader(onDuration: _receivedDuration)
+          : null);
   final Map<String, String> _invalidMedia = {};
   final Map<String, MediaTrackPreferences> _trackPreferencesByPath = {};
   bool _stateReady = false;
   bool _exiting = false;
+  bool _leavingSection = false;
+  bool _externalReady = false;
+  bool _processingExternal = false;
   Future<AppExitResponse>? _exitRequest;
   String? _stateWarning;
   String? _restoreCurrentPath;
@@ -261,6 +298,7 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       _lesson != null &&
       _playback.localPath != null &&
       !_exiting &&
+      !_leavingSection &&
       !_loading &&
       !_playback.busy;
   int get _playlistIndex => _lessons.indexWhere(
@@ -276,7 +314,13 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     _playback.addListener(_changed);
     _tracks?.addListener(_tracksChanged);
     _files.setMethodCallHandler(_handleNativeCall);
-    unawaited(_enqueueMedia(_restore));
+    widget.mediaOpenController?.addListener(_externalFilesAvailable);
+    unawaited(
+      _enqueueMedia(_restore).whenComplete(() {
+        _externalReady = true;
+        _externalFilesAvailable();
+      }),
+    );
     if (Platform.isMacOS) unawaited(_readFullScreen());
     _saveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _save();
@@ -324,7 +368,12 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
   }
 
   void _suspendMetadata() => _metadata?.setSuspended(
-    _exiting || !_stateReady || _playback.playing || _loading || _importing,
+    _exiting ||
+        _leavingSection ||
+        !_stateReady ||
+        _playback.playing ||
+        _loading ||
+        _importing,
   );
 
   void _syncMetadataQueue() {
@@ -568,7 +617,10 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
       }
       await _applyVolume();
       await _playback.setRate((data?['rate'] as num? ?? 1).toDouble());
-      for (final lesson in _lessons) {
+      for (final lesson
+          in widget.mediaOpenController?.hasPending == true
+              ? const <LocalLesson>[]
+              : _lessons) {
         if (lesson.primaryPath == _restoreCurrentPath ||
             lesson.audioPath == _restoreCurrentPath) {
           await _openLesson(
@@ -689,6 +741,77 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     }
     _armChromeTimer();
     _syncMetadataQueue();
+    _externalFilesAvailable();
+  }
+
+  void _externalFilesAvailable() {
+    if (!mounted ||
+        !_externalReady ||
+        _processingExternal ||
+        _importing ||
+        _leavingSection ||
+        _exiting ||
+        widget.mediaOpenController?.hasPending != true) {
+      return;
+    }
+    unawaited(_openExternalFiles());
+  }
+
+  Future<void> _openExternalFiles() async {
+    _processingExternal = true;
+    final controller = widget.mediaOpenController!;
+    final paths = controller.takeNext()!;
+    try {
+      await _importPaths(paths, fromDrop: true);
+      if (!mounted ||
+          _playback.localPath == null ||
+          !paths.contains(_playback.localPath)) {
+        return;
+      }
+      for (final directory
+          in paths.map((path) => File(path).parent.path).toSet()) {
+        if (!mounted) return;
+        final accepted = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(context.tr('导入同目录的视频？')),
+            content: Text(
+              context.tr('是否将“{folder}”文件夹中的所有视频加入播放列表？', {
+                'folder': fileName(directory),
+              }),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(context.tr('仅打开所选文件')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(context.tr('导入视频')),
+              ),
+            ],
+          ),
+        );
+        if (accepted != true || !mounted) continue;
+        final language = AppLocalizations.of(context).locale.languageCode;
+        final granted = await controller.requestFolderAccess(
+          directory,
+          language,
+        );
+        if (granted == null || !mounted) continue;
+        // Never scan a substituted directory returned by a platform handler.
+        if (File(granted).absolute.path != File(directory).absolute.path) {
+          continue;
+        }
+        final videos = await siblingVideoPaths(Directory(directory));
+        if (mounted && videos.isNotEmpty) await _importPaths(videos);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _message = '无法导入同目录的视频：$error');
+    } finally {
+      _processingExternal = false;
+      _externalFilesAvailable();
+    }
   }
 
   Future<void> _openFolder() => _run(() async {
@@ -1637,8 +1760,9 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    widget.mediaOpenController?.removeListener(_externalFilesAvailable);
     _unregisterNavigation?.call();
-    if (!_exiting) _save();
+    if (!_exiting && !_leavingSection) _save();
     _saveTimer?.cancel();
     _stopTimer?.cancel();
     _fullScreenSyncTimer?.cancel();
@@ -1652,7 +1776,8 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
     _files.setMethodCallHandler(null);
     final shutdown = Future.wait<void>([
       _playback.close(),
-      if (_metadata != null) _metadata.close(),
+      // The muted, headless metadata reader already closes via dispose above.
+      // Its in-flight file read must not block foreground module navigation.
       _store.flush(),
     ]).then<void>((_) {});
     _navigation?.trackShutdown(shutdown);

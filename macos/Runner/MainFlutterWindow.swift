@@ -5,6 +5,7 @@ import QuartzCore
 class MainFlutterWindow: NSWindow, NSDraggingDestination {
   private let bookmarksKey = "offlinePlayer.localFiles.bookmarks.v1"
   private var localFilesChannel: FlutterMethodChannel?
+  private var mediaOpenChannel: FlutterMethodChannel?
   private var scopedURLs: [String: URL] = [:]
   private var windowObservers: [NSObjectProtocol] = []
   private var dragActive = false
@@ -39,6 +40,7 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     ICloudSyncPlugin.register(with: flutterViewController.registrar(forPlugin: "ICloudSyncPlugin"))
     configureAppInfoChannel(flutterViewController)
     configureLocalFilesChannel(flutterViewController)
+    configureMediaOpenChannel(flutterViewController)
     configureWindowInteractions()
 
     super.awakeFromNib()
@@ -69,6 +71,80 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
         result(NSWorkspace.shared.open(url))
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func configureMediaOpenChannel(_ controller: FlutterViewController) {
+    let channel = FlutterMethodChannel(
+      name: "goodgoodstudy/open_media", binaryMessenger: controller.engine.binaryMessenger
+    )
+    mediaOpenChannel = channel
+    MediaOpenInbox.shared.onAvailable = { [weak self] in
+      self?.mediaOpenChannel?.invokeMethod("filesAvailable", arguments: nil)
+    }
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { result(nil); return }
+      switch call.method {
+      case "takePending":
+        result(MediaOpenInbox.shared.takePending().map { urls -> [String] in
+          for url in urls { self.retainAccess(to: url) }
+          let paths = urls.map { $0.standardizedFileURL.path }
+          // A bookmark failure must not prevent playback of the Finder grant.
+          try? self.rememberPaths(paths)
+          return paths
+        })
+      case "requestFolderAccess":
+        guard let args = call.arguments as? [String: Any],
+              let path = args["path"] as? String, path.hasPrefix("/"), !path.contains("\0") else {
+          result(FlutterError(code: "invalid_folder", message: "Expected a local folder.", details: nil))
+          return
+        }
+        self.requestMediaFolderAccess(path: path, language: args["language"] as? String ?? "zh", result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func requestMediaFolderAccess(path: String, language: String, result: @escaping FlutterResult) {
+    let folder = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+    // Reuse an existing folder grant when possible. This runs only after consent.
+    if (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) != nil {
+      try? rememberPaths([folder.path])
+      result(folder.path)
+      return
+    }
+    let panel = NSOpenPanel()
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.directoryURL = folder
+    switch language {
+    case "ja":
+      panel.message = "動画を読み込むには、動画が入っているフォルダーを選択してください。"
+      panel.prompt = "選択"
+    case "en":
+      panel.message = "Select the folder containing the videos to add them to the playlist."
+      panel.prompt = "Select"
+    default:
+      panel.message = "请选择视频所在的文件夹，以将其中的视频加入播放列表。"
+      panel.prompt = "选择"
+    }
+    panel.beginSheetModal(for: self) { [weak self] response in
+      guard let self = self, response == .OK, let selected = panel.url else { result(nil); return }
+      let requestedPath = folder.resolvingSymlinksInPath().path
+      let selectedPath = selected.resolvingSymlinksInPath().path
+      guard requestedPath == selectedPath || requestedPath.hasPrefix(selectedPath == "/" ? "/" : selectedPath + "/") else {
+        result(FlutterError(code: "different_folder", message: "请选择所打开媒体所在的文件夹。", details: nil))
+        return
+      }
+      self.retainAccess(to: selected)
+      do {
+        try self.rememberPaths([selected.standardizedFileURL.path])
+        result(folder.path)
+      } catch {
+        result(FlutterError(code: "folder_access_failed", message: error.localizedDescription, details: nil))
       }
     }
   }

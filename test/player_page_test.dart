@@ -14,6 +14,7 @@ import 'package:offline_player/library/playlist_mode.dart';
 import 'package:offline_player/library/playlist_import.dart';
 import 'package:offline_player/main.dart';
 import 'package:offline_player/playback/offline_playback.dart';
+import 'package:offline_player/playback/desktop_media_open.dart';
 import 'package:offline_player/theme/app_theme.dart';
 import 'package:offline_player/widgets/player_playlist.dart';
 import 'package:offline_player/widgets/player_subtitles.dart';
@@ -23,6 +24,153 @@ import 'support/fake_desktop_playback.dart';
 const _files = MethodChannel('offline_player/local_files');
 
 void main() {
+  for (final choice in ['selected', 'import', 'cancel-access', 'audio']) {
+    testWidgets(
+      'Finder open autoplays selected file and handles $choice folder choice',
+      (tester) async {
+        const externalChannel = MethodChannel('goodgoodstudy/open_media');
+        final harness = (await tester.runAsync(_DesktopHarness.create))!;
+        final selectedPath = choice == 'audio'
+            ? '${harness.directory.path}/selected.mp3'
+            : harness.third.path;
+        final selectedOnly = choice == 'selected' || choice == 'audio';
+        final controller = DesktopMediaOpenController();
+        harness.mediaOpenController = controller;
+        var pending = true;
+        var folderRequests = 0;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          externalChannel,
+          (call) async {
+            if (call.method == 'takePending') {
+              if (!pending) return <List<String>>[];
+              pending = false;
+              return [
+                [selectedPath],
+              ];
+            }
+            if (call.method == 'requestFolderAccess') {
+              folderRequests++;
+              return choice == 'cancel-access' ? null : harness.directory.path;
+            }
+            return null;
+          },
+        );
+        try {
+          await controller.initialize();
+          await tester.runAsync(() async {
+            if (choice == 'audio') await File(selectedPath).writeAsBytes([0]);
+            await File('${harness.directory.path}/fourth.MKV')
+                .writeAsBytes([0]);
+            await File('${harness.directory.path}/audio.mp3').writeAsBytes([0]);
+          });
+          await harness.mount(tester, expectedPath: selectedPath);
+          await _flush(
+            tester,
+            until: () => find.text('导入同目录的视频？').evaluate().isNotEmpty,
+          );
+          expect(harness.transport.opened.map((uri) => uri.toFilePath()), [
+            selectedPath,
+          ]);
+          expect(harness.playback.playing, isTrue);
+          expect(folderRequests, 0);
+          await tester.tap(find.text(selectedOnly ? '仅打开所选文件' : '导入视频'));
+          await _flush(
+            tester,
+            until: () => find.byType(AlertDialog).evaluate().isEmpty,
+          );
+          if (choice == 'import') {
+            await _flush(
+              tester,
+              until: () => find.text('fourth').evaluate().isNotEmpty,
+            );
+            expect(find.text('audio'), findsNothing);
+          } else {
+            await _flush(tester);
+            expect(find.text('fourth'), findsNothing);
+          }
+          expect(folderRequests, selectedOnly ? 0 : 1);
+          expect(harness.playback.localPath, selectedPath);
+          expect(harness.playback.playing, isTrue);
+          expect(harness.transport.opened.length, 1);
+        } finally {
+          await harness.close(tester);
+          controller.dispose();
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            externalChannel,
+            null,
+          );
+        }
+      },
+    );
+  }
+  testWidgets(
+    'Finder requests arriving in a mounted player are processed in order',
+    (tester) async {
+      const externalChannel = MethodChannel('goodgoodstudy/open_media');
+      final harness = (await tester.runAsync(_DesktopHarness.create))!;
+      final controller = DesktopMediaOpenController();
+      harness.mediaOpenController = controller;
+      var inbox = <List<String>>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        externalChannel,
+        (call) async {
+          if (call.method == 'takePending') {
+            final result = inbox;
+            inbox = [];
+            return result;
+          }
+          throw StateError('Folder access was not requested');
+        },
+      );
+      try {
+        await controller.initialize();
+        await harness.mount(tester);
+        inbox = [
+          [harness.third.path],
+          [harness.second.path],
+        ];
+        await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          externalChannel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('filesAvailable'),
+          ),
+          (_) {},
+        );
+        await _flush(
+          tester,
+          until: () => find.byType(AlertDialog).evaluate().isNotEmpty,
+        );
+        expect(harness.playback.localPath, harness.third.path);
+        await tester.tap(find.text('仅打开所选文件'));
+        await _flush(
+          tester,
+          until: () =>
+              harness.playback.localPath == harness.second.path &&
+              find.byType(AlertDialog).evaluate().isNotEmpty,
+        );
+        await tester.tap(find.text('仅打开所选文件'));
+        await _flush(
+          tester,
+          until: () => find.byType(AlertDialog).evaluate().isEmpty,
+        );
+        expect(controller.hasPending, isFalse);
+        expect(harness.transport.opened.map((uri) => uri.toFilePath()), [
+          harness.first.path,
+          harness.third.path,
+          harness.second.path,
+        ]);
+        expect(harness.playback.playing, isTrue);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await harness.close(tester);
+        controller.dispose();
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          externalChannel,
+          null,
+        );
+      }
+    },
+  );
   testWidgets(
     'sentence loop toggles off and sentence mode starts a finite loop',
     (tester) async {
@@ -1424,6 +1572,7 @@ class _DesktopHarness {
   final platformCalls = <MethodCall>[];
   final picker = _Picker();
   LocalMediaScanner? scanMedia;
+  DesktopMediaOpenController? mediaOpenController;
   Future<String?> Function(String) findSubtitle = (_) async => null;
   FilePickerPlatform? originalPicker;
   final FakeDesktopPlaybackTransport transport;
@@ -1501,7 +1650,11 @@ class _DesktopHarness {
     return harness;
   }
 
-  Future<void> mount(WidgetTester tester, {bool expectMedia = true}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    bool expectMedia = true,
+    String? expectedPath,
+  }) async {
     tester.view.physicalSize = const Size(1280, 960);
     tester.view.devicePixelRatio = 1;
     originalPicker = FilePickerPlatform.instance;
@@ -1526,6 +1679,7 @@ class _DesktopHarness {
             stateStore: store,
             videoSurface: const ColoredBox(color: Colors.black),
             scanMedia: scanMedia,
+            mediaOpenController: mediaOpenController,
             // Filesystem discovery is covered by companion_subtitle_test.
             findSubtitle: findSubtitle,
           ),
@@ -1535,7 +1689,8 @@ class _DesktopHarness {
     await _flush(
       tester,
       until: () => expectMedia
-          ? playback.localPath == lessons[initialIndex].primaryPath
+          ? playback.localPath ==
+                (expectedPath ?? lessons[initialIndex].primaryPath)
           : store.status == LocalStateStatus.blocked,
     );
   }

@@ -10,6 +10,7 @@ import 'package:offline_player/main.dart';
 import 'package:offline_player/navigation/app_navigation.dart';
 import 'package:offline_player/navigation/good_good_study_shell.dart';
 import 'package:offline_player/playback/offline_playback.dart';
+import 'package:offline_player/playback/media_metadata.dart';
 import 'package:offline_player/theme/app_theme.dart';
 
 import '../support/fake_desktop_playback.dart';
@@ -149,6 +150,129 @@ void main() {
       });
     }
   }
+
+  testWidgets(
+    'a slow muted metadata probe cannot delay home or the next module',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 960);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('slow-metadata-navigation-'),
+      ))!;
+      final store = _StateStore(corrupt: false)
+        ..data = {
+          'lessons': [
+            for (final name in ['first', 'second'])
+              LocalLesson(
+                title: name,
+                videoPath: '${root.path}/$name.mp4',
+              ).toJson(),
+          ],
+        };
+      final navigation = AppNavigationController(
+        preferences: _PlayerPreferences(),
+      );
+      final theme = AppThemeController();
+      final playback = OfflinePlayback.withTransport(_RestoreTransport());
+      final probe = _SlowMetadataProbe();
+      final metadataResults = <Duration>[];
+      final metadata = MediaMetadataReader.withProbe(
+        probe,
+        (_, duration) => metadataResults.add(duration),
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _files,
+        (call) async => switch (call.method) {
+          'getFullScreen' => false,
+          'restorePaths' => <String>[],
+          _ => null,
+        },
+      );
+      try {
+        await navigation.load();
+        await tester.pumpWidget(
+          AppThemeScope(
+            controller: theme,
+            child: MaterialApp(
+              theme: buildAppTheme(Brightness.light),
+              home: GoodGoodStudyShell(
+                controller: navigation,
+                iconAsset: null,
+                builders: {
+                  AppSection.player: (_) => PlayerPage(
+                    playback: playback,
+                    stateStore: store,
+                    metadataReader: metadata,
+                    videoSurface: const ColoredBox(color: Colors.black),
+                  ),
+                  AppSection.quiz: (_) =>
+                      const Scaffold(body: Text('module-quiz')),
+                },
+              ),
+            ),
+          ),
+        );
+        await _pumpUntil(tester, () => probe.paths.isNotEmpty);
+        await tester.tap(find.byKey(const ValueKey('app-home-back')));
+        await _pumpUntil(
+          tester,
+          () =>
+              navigation.section == AppSection.home && !navigation.isSwitching,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('home-entry-quiz')), findsOneWidget);
+        expect(probe.gate.isCompleted, isFalse);
+        expect(probe.closed, isFalse);
+        expect(metadata.suspended, isTrue);
+
+        await tester.tap(find.byKey(const ValueKey('home-entry-quiz')));
+        await _pumpUntil(
+          tester,
+          () =>
+              navigation.section == AppSection.quiz && !navigation.isSwitching,
+        );
+        expect(find.text('module-quiz'), findsOneWidget);
+        expect(probe.gate.isCompleted, isFalse);
+        probe.gate.complete(const Duration(seconds: 8));
+        await _pumpUntil(tester, () => probe.closed);
+        expect(probe.paths, hasLength(1));
+        expect(metadataResults, isEmpty);
+        expect(tester.takeException(), isNull);
+      } finally {
+        if (!probe.gate.isCompleted) probe.gate.complete(Duration.zero);
+        await tester.pumpWidget(const SizedBox.shrink());
+        var closed = false;
+        final closing = Future.wait<void>([playback.close(), metadata.close()]);
+        unawaited(closing.then((_) => closed = true));
+        await _pumpUntil(tester, () => closed);
+        await closing;
+        await tester.runAsync(() => root.delete(recursive: true));
+        playback.dispose();
+        navigation.dispose();
+        theme.dispose();
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          _files,
+          null,
+        );
+      }
+    },
+  );
+}
+
+class _SlowMetadataProbe implements MediaDurationProbe {
+  final gate = Completer<Duration>();
+  final paths = <String>[];
+  bool closed = false;
+  @override
+  Future<Duration> readDuration(String path) {
+    paths.add(path);
+    return gate.future;
+  }
+
+  @override
+  Future<void> close() async => closed = true;
 }
 
 Future<void> _pumpUntil(WidgetTester tester, bool Function() ready) async {

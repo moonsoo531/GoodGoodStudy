@@ -3,6 +3,37 @@ import XCTest
 @testable import offline_player
 
 final class RunnerTests: XCTestCase {
+  func testFinderInboxKeepsColdRequestsUntilTakenAndFiltersNonMedia() {
+    let inbox = MediaOpenInbox()
+    let first = URL(fileURLWithPath: "/media/lesson.MKV")
+    let second = URL(fileURLWithPath: "/media/audio.mp3")
+    inbox.append([first, first, URL(string: "https://example.invalid/video.mp4")!,
+                  URL(fileURLWithPath: "/media/notes.srt"), second])
+    XCTAssertEqual(inbox.takePending(), [[first, second]])
+    XCTAssertTrue(inbox.takePending().isEmpty)
+  }
+
+  func testFinderInboxNotifiesForEveryOpenIncludingSameFileAgain() {
+    let inbox = MediaOpenInbox()
+    var notifications = 0
+    inbox.onAvailable = { notifications += 1 }
+    let file = URL(fileURLWithPath: "/media/lesson.mp4")
+    inbox.append([file])
+    inbox.append([file])
+    XCTAssertEqual(notifications, 2)
+    XCTAssertEqual(inbox.takePending(), [[file], [file]])
+  }
+
+  func testFinderDocumentTypesCoverEverySupportedExtensionWithoutTakingOverDefaults() throws {
+    let types = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "CFBundleDocumentTypes") as? [[String: Any]])
+    let extensions = Set(types.flatMap { $0["CFBundleTypeExtensions"] as? [String] ?? [] })
+    XCTAssertEqual(extensions, MediaOpenInbox.extensions)
+    for type in types {
+      XCTAssertEqual(type["CFBundleTypeRole"] as? String, "Viewer")
+      XCTAssertEqual(type["LSHandlerRank"] as? String, "Alternate")
+    }
+  }
+
   private let bookmarksKey = "offlinePlayer.localFiles.bookmarks.v1"
   private var savedBookmarks: Any?
   private var temporaryDirectory: URL!

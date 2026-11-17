@@ -1,5 +1,20 @@
 /// Desktop player interface strings: Japanese, then English.
 const Map<String, List<String>> mainStrings = {
+  '导入同目录的视频？': ['同じフォルダーの動画を読み込みますか？', 'Import videos from the same folder?'],
+  '是否将“{folder}”文件夹中的所有视频加入播放列表？': [
+    '「{folder}」フォルダー内のすべての動画をプレイリストに追加しますか？',
+    'Add all videos in “{folder}” to the playlist?',
+  ],
+  '仅打开所选文件': ['選択したファイルのみ', 'Only selected files'],
+  '导入视频': ['動画を読み込む', 'Import videos'],
+  '无法导入同目录的视频：{error}': [
+    '同じフォルダーの動画を読み込めません：{error}',
+    'Could not import videos from the same folder: {error}',
+  ],
+  '请选择所打开媒体所在的文件夹。': [
+    '開いたメディアが入っているフォルダーを選択してください。',
+    'Select the folder containing the opened media.',
+  ],
   "离线播放器": ["オフラインプレーヤー", "Offline Player"],
   "无法读取拖入的文件：{error}": [
     "ドロップしたファイルを読み込めません：{error}",

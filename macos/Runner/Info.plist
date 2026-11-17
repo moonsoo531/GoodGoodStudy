@@ -22,6 +22,67 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>GoodGoodStudyICloudContainerIdentifier</key>
 	<string>$(GOODGOODSTUDY_ICLOUD_CONTAINER)</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Media</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.movie</string>
+				<string>public.audio</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Video</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>mkv</string>
+				<string>mp4</string>
+				<string>m4v</string>
+				<string>mov</string>
+				<string>webm</string>
+				<string>avi</string>
+				<string>ts</string>
+				<string>wmv</string>
+				<string>mpg</string>
+				<string>mpeg</string>
+				<string>m2ts</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>mp3</string>
+				<string>m4a</string>
+				<string>wav</string>
+				<string>flac</string>
+				<string>aac</string>
+				<string>ogg</string>
+				<string>opus</string>
+				<string>aiff</string>
+				<string>aif</string>
+				<string>caf</string>
+				<string>wma</string>
+				<string>alac</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	<key>LSMinimumSystemVersion</key>
