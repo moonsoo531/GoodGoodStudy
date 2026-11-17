@@ -48,6 +48,7 @@ Future<void> main() async {
   late final ResourceSyncController syncController;
   final navigationController = AppNavigationController(
     beforeEnter: () => syncController.applyPending(),
+    restoreLastSection: false,
   );
   final studyStore = StudyStore(
     onCommitted: () => syncController.localChanged(),

@@ -199,11 +199,18 @@ void main() {
         await tester.runAsync(() async {
           await tester.tap(quiz);
           final deadline = DateTime.now().add(const Duration(seconds: 5));
-          while (find.text('选择一本资料，开始测试').evaluate().isEmpty) {
+          while (find.text('选择一本资料，开始测试').evaluate().isEmpty ||
+              find
+                  .descendant(
+                    of: find.byType(QuizPage),
+                    matching: find.byType(LinearProgressIndicator),
+                  )
+                  .evaluate()
+                  .isNotEmpty) {
             if (DateTime.now().isAfter(deadline)) {
               throw TimeoutException('Quiz page did not open.');
             }
-            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 16));
             await Future<void>.delayed(const Duration(milliseconds: 1));
           }
         });

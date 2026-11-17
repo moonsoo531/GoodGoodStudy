@@ -98,6 +98,41 @@ void main() {
     },
   );
 
+  for (final saved in AppSection.values) {
+    testWidgets(
+      'home startup keeps saved ${saved.name} without mounting a module',
+      (tester) async {
+        final preferences = _MemoryPreferences(saved);
+        final controller = AppNavigationController(
+          preferences: preferences,
+          restoreLastSection: false,
+        );
+        addTearDown(controller.dispose);
+        final mounted = <AppSection>[];
+        await controller.load();
+        await tester.pumpWidget(_host(controller, onBuild: mounted.add));
+        expect(controller.section, AppSection.home);
+        expect(
+          controller.lastActivity,
+          saved == AppSection.home ? null : saved,
+        );
+        expect(preferences.saved, saved);
+        expect(mounted, isEmpty);
+        for (final section in [
+          AppSection.study,
+          AppSection.quiz,
+          AppSection.player,
+        ]) {
+          expect(
+            find.byKey(ValueKey('home-entry-${section.name}')),
+            findsOneWidget,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'leave guard can refuse, and resource shutdown finishes before next module mounts',
     (tester) async {

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_player/playback/apple_audio_controller.dart';
 import 'package:offline_player/playback/offline_playback.dart';
 import 'package:offline_player/study/study_audio.dart';
+import 'package:offline_player/study/study_playback_controller.dart';
 
 import '../playback/apple_audio_controller_test.dart'
     show FakeAppleAudioTransport;
@@ -32,6 +33,37 @@ void main() {
     if (!controllerDisposedByAdapter) controller.dispose();
     await temporary.delete(recursive: true);
   });
+
+  for (final desktop in [true, false]) {
+    test(
+      '${desktop ? 'desktop' : 'iOS'} study can reset and leave before opening its first audio',
+      () async {
+        final desktopTransport = FakeTransport();
+        final adapter = desktop
+            ? DesktopStudyAudio(
+                playback: OfflinePlayback.withTransport(desktopTransport),
+              )
+            : AppleStudyAudio(controller);
+        final playback = StudyPlaybackController(audio: adapter);
+        try {
+          await playback.setLesson(null);
+          await adapter.pause();
+          expect(adapter.error, isNull);
+          expect(adapter.playing, isFalse);
+          expect(playback.busy, isFalse);
+          expect(desktopTransport.opened, isEmpty);
+          expect(
+            transport.calls.where((call) => call.command == 'open'),
+            isEmpty,
+          );
+        } finally {
+          playback.dispose();
+          await adapter.close();
+          adapter.dispose();
+        }
+      },
+    );
+  }
 
   test('shared adapter forwards controls and detaches without closing the original player', () async {
     await controller.openLocal(original.path, title: 'Original');

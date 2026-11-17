@@ -39,6 +39,44 @@ void main() {
   }
 
   test(
+    'pausing an empty player is safe and does not call the backend',
+    () async {
+      await playback.pause();
+      await playback.pause();
+      expect(playback.localPath, isNull);
+      expect(playback.playing, isFalse);
+      expect(playback.error, isNull);
+      expect(transport.pauseCount, 0);
+    },
+  );
+
+  test(
+    'pausing after a failed first open preserves the original error',
+    () async {
+      transport.openFailure = StateError('Synthetic decoder failure');
+      await expectLater(playback.openLocal(audio.path), throwsStateError);
+      final failure = playback.error;
+      await playback.pause();
+      expect(playback.localPath, isNull);
+      expect(playback.playing, isFalse);
+      expect(playback.error, failure);
+      expect(transport.pauseCount, 0);
+    },
+  );
+
+  test('pausing after unload leaves the player empty', () async {
+    final backend = await useClearableTransport();
+    await playback.openLocal(audio.path);
+    await playback.clearMedia();
+    final pauses = backend.pauseCount;
+    await playback.pause();
+    expect(playback.localPath, isNull);
+    expect(playback.playing, isFalse);
+    expect(playback.error, isNull);
+    expect(backend.pauseCount, pauses);
+  });
+
+  test(
     'rejects network sources and playlists before touching the backend',
     () async {
       for (final source in [

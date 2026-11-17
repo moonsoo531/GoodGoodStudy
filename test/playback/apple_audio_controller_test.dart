@@ -25,6 +25,54 @@ void main() {
     await temporary.delete(recursive: true);
   });
 
+  test('iOS pause succeeds before any audio is opened', () async {
+    await controller.refresh();
+    await controller.pause();
+    await controller.pause();
+    expect(controller.path, isNull);
+    expect(controller.playing, isFalse);
+    expect(controller.busy, isFalse);
+    expect(controller.error, isNull);
+    expect(transport.calls.map((call) => call.command), [
+      'snapshot',
+      'pause',
+      'pause',
+    ]);
+  });
+
+  test('iOS can pause after a native decoder rejects the first open', () async {
+    transport.handler = (command, arguments) async {
+      throw PlatformException(
+        code: 'decode',
+        message: 'Synthetic decoder failure',
+      );
+    };
+    await expectLater(
+      controller.openLocal(audio.path, title: 'Unavailable audio'),
+      throwsA(isA<PlatformException>()),
+    );
+    expect(controller.path, isNull);
+    transport.handler = null;
+    await controller.pause();
+    expect(controller.path, isNull);
+    expect(controller.playing, isFalse);
+    expect(controller.busy, isFalse);
+    expect(controller.error, isNull);
+    expect(transport.calls.map((call) => call.command), ['open', 'pause']);
+  });
+
+  test('iOS can pause when saved audio no longer exists', () async {
+    await expectLater(
+      controller.openLocal('${temporary.path}/missing.mp3', title: 'Missing'),
+      throwsA(isA<FileSystemException>()),
+    );
+    await controller.pause();
+    expect(controller.path, isNull);
+    expect(controller.playing, isFalse);
+    expect(controller.error, isNull);
+    expect(transport.calls.single.command, 'pause');
+  });
+
   test(
     'opens only supported existing local audio using the native protocol',
     () async {

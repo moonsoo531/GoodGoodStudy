@@ -72,8 +72,12 @@ class AppNavigationController extends ChangeNotifier {
   AppNavigationController({
     NavigationPreferences? preferences,
     this.beforeEnter,
+    this.restoreLastSection = true,
   }) : _preferences = preferences ?? NavigationPreferences();
   final NavigationPreferences _preferences;
+
+  /// Locations inside each module are restored separately from the start page.
+  final bool restoreLastSection;
 
   /// Applies already-downloaded local changes after the old module shuts down.
   /// This hook must not wait for a cloud transfer.
@@ -102,7 +106,7 @@ class AppNavigationController extends ChangeNotifier {
   Future<void> _load() async {
     final saved = await _preferences.read();
     if (_disposed) return;
-    _section = saved;
+    _section = restoreLastSection ? saved : AppSection.home;
     _lastActivity = saved == AppSection.home ? null : saved;
     _loaded = true;
     notifyListeners();

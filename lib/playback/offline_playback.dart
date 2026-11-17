@@ -302,7 +302,9 @@ class OfflinePlayback extends ChangeNotifier {
   }
 
   Future<void> _pauseNow() async {
-    _requireMedia();
+    // Navigation and shutdown also pause an empty or unsuccessfully restored
+    // player. There is no native media session to pause in that state.
+    if (_localPath == null) return;
     await _transport.pause();
     _playing = false;
     _runIntent = false;

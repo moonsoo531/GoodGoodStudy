@@ -167,6 +167,83 @@ void main() {
       );
     }
   }
+
+  for (final target in [AppSection.study, AppSection.quiz]) {
+    testWidgets('empty iOS player can switch to ${target.name} from its menu', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('ios-empty-navigation-'),
+      ))!;
+      final controller = AppNavigationController(
+        preferences: _PlayerPreferences(),
+      );
+      final theme = AppThemeController();
+      final fixture = _PageFixture(AppSection.player, root);
+      try {
+        await tester.runAsync(() async {
+          await fixture.prepare();
+          await controller.load();
+        });
+        await tester.pumpWidget(
+          _host(
+            'zh',
+            theme,
+            GoodGoodStudyShell(
+              controller: controller,
+              iconAsset: null,
+              phonePlayback: true,
+              builders: {
+                AppSection.player: (_) => fixture.page,
+                target: (_) => Scaffold(body: Text('module-${target.name}')),
+              },
+            ),
+          ),
+        );
+        await _pumpUntil(tester, fixture.isReady);
+        fixture.pauseGate.armed = true;
+        await tester.tap(find.byKey(const ValueKey('app-section-menu')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('app-section-${target.name}')));
+        await _pumpUntil(tester, () => fixture.pauseGate.entered.isCompleted);
+        expect(controller.section, AppSection.player);
+        expect(find.byType(PhonePlayerPage), findsOneWidget);
+        fixture.pauseGate.release();
+        await _pumpUntil(
+          tester,
+          () => controller.section == target && !controller.isSwitching,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('module-${target.name}'), findsOneWidget);
+        expect(find.byType(PhonePlayerPage), findsNothing);
+        expect(fixture.pauseGate.completed, isTrue);
+        expect(fixture.phoneAudio!.path, isNull);
+        expect(fixture.phoneAudio!.error, isNull);
+        expect(controller.errorMessage, isNull);
+        expect(tester.takeException(), isNull);
+      } finally {
+        fixture.pauseGate.release();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _complete(tester, () async {
+          await fixture.close();
+          await root.delete(recursive: true);
+        }());
+        controller.dispose();
+        theme.dispose();
+      }
+    });
+  }
+}
+
+class _PlayerPreferences extends NavigationPreferences {
+  @override
+  Future<AppSection> read() async => AppSection.player;
+  @override
+  Future<void> write(AppSection section) async {}
 }
 
 Widget _host(
@@ -200,7 +277,7 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() ready) async {
           'The mobile page did not complete its transition.',
         );
       }
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
       await Future<void>.delayed(const Duration(milliseconds: 1));
     }
   });
